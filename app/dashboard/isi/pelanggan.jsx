@@ -2,9 +2,9 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { tambahPelanggan, ubahPelanggan, hapusPelanggan } from "@/app/actions/pelanggan";
-import { bolehAksi } from "@/lib/akses";
+import { bolehAksi, LABEL_DIVISI } from "@/lib/akses";
 import { useUser } from "../user-provider";
-import { Kosong, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, PesanGagal, PesanBerhasil } from "./util";
+import { Kosong, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, PesanGagal, PesanBerhasil, Overlay, BadgeStatus, ProgressBar, formatTanggal } from "./util";
 
 export function KelolaPelanggan({ onTambah }) {
     const user = useUser();
@@ -13,6 +13,7 @@ export function KelolaPelanggan({ onTambah }) {
     const [daftar, setDaftar] = useState(null);
     const [cari, setCari] = useState("");
     const [idEdit, setIdEdit] = useState(null);
+    const [idDetail, setIdDetail] = useState(null);
     const [gagal, setGagal] = useState(false);
     const [muat, setMuat] = useState(0);
 
@@ -86,6 +87,7 @@ export function KelolaPelanggan({ onTambah }) {
                                     bolehKelola={bolehKelola}
                                     idEdit={idEdit}
                                     setIdEdit={setIdEdit}
+                                    setIdDetail={setIdDetail}
                                     segarkan={segarkan}
                                 />
                             ))}
@@ -93,11 +95,13 @@ export function KelolaPelanggan({ onTambah }) {
                     </table>
                 </div>
             )}
+
+            {idDetail && <DetailPelanggan id={idDetail} onTutup={() => setIdDetail(null)} />}
         </div>
     );
 }
 
-function PelangganBaris({ row, bolehKelola, idEdit, setIdEdit, segarkan }) {
+function PelangganBaris({ row, bolehKelola, idEdit, setIdEdit, setIdDetail, segarkan }) {
     const terbuka = idEdit === row.id;
 
     const hapus = async () => {
@@ -116,6 +120,9 @@ function PelangganBaris({ row, bolehKelola, idEdit, setIdEdit, segarkan }) {
                 <td className="p-2">{row.email || "-"}</td>
                 {bolehKelola && (
                     <td className="p-2 flex gap-2">
+                        <button type="button" onClick={() => setIdDetail(row.id)} className={KELAS_TOMBOL_KECIL}>
+                            Detail
+                        </button>
                         <button type="button" onClick={() => setIdEdit(terbuka ? null : row.id)} className={KELAS_TOMBOL_KECIL}>
                             {terbuka ? "Tutup" : "Ubah"}
                         </button>
@@ -145,6 +152,90 @@ function PelangganBaris({ row, bolehKelola, idEdit, setIdEdit, segarkan }) {
                 </tr>
             )}
         </>
+    );
+}
+
+function DetailPelanggan({ id, onTutup }) {
+    const [data, setData] = useState(null);
+    const [gagal, setGagal] = useState(false);
+
+    useEffect(() => {
+        let batal = false;
+        fetch(`/api/pelanggan?id=${encodeURIComponent(id)}`)
+            .then((r) => {
+                if (!r.ok) throw new Error();
+                return r.json();
+            })
+            .then((j) => {
+                if (!batal) setData(j);
+            })
+            .catch(() => {
+                if (!batal) setGagal(true);
+            });
+        return () => {
+            batal = true;
+        };
+    }, [id]);
+
+    return (
+        <Overlay judul="Detail Pelanggan" onTutup={onTutup}>
+            {gagal ? (
+                <p className="text-sm text-red-600">Gagal memuat detail pelanggan.</p>
+            ) : !data ? (
+                <p className="text-sm text-slate-400">Memuat detail pelanggan...</p>
+            ) : (
+                <>
+                    <div className="flex flex-col gap-1">
+                        <p className="text-base font-semibold text-slate-700">{data.nama}</p>
+                        <p className="text-sm text-slate-500">Telepon: {data.nomor_telepon || "-"}</p>
+                        <p className="text-sm text-slate-500">Email: {data.email || "-"}</p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <h3 className="text-sm font-semibold text-slate-600">Histori Job Order ({data.riwayat.length})</h3>
+                        {data.riwayat.length === 0 ? (
+                            <Kosong pesan="Belum ada job order untuk pelanggan ini." />
+                        ) : (
+                            <div className="overflow-x-auto border border-slate-200">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="text-left text-slate-500 bg-slate-100 border-b border-slate-200">
+                                            <th className="p-2 font-medium">Nomor</th>
+                                            <th className="p-2 font-medium">Terima</th>
+                                            <th className="p-2 font-medium">Selesai</th>
+                                            <th className="p-2 font-medium">Divisi</th>
+                                            <th className="p-2 font-medium">Persentase</th>
+                                            <th className="p-2 font-medium">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {data.riwayat.map((jo) => (
+                                            <tr key={jo.nomor} className="border-b border-slate-100">
+                                                <td className="p-2 font-mono text-xs whitespace-nowrap">{jo.nomor}</td>
+                                                <td className="p-2 whitespace-nowrap">{formatTanggal(jo.tanggal_terima)}</td>
+                                                <td className="p-2 whitespace-nowrap">{formatTanggal(jo.tanggal_selesai)}</td>
+                                                <td className="p-2 whitespace-nowrap text-xs">
+                                                    {jo.divisi_pengerjaan ? (
+                                                        LABEL_DIVISI[jo.divisi_pengerjaan]
+                                                    ) : (
+                                                        <span className="text-slate-400">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="p-2">
+                                                    <ProgressBar persentase={jo.persentase} />
+                                                </td>
+                                                <td className="p-2">
+                                                    <BadgeStatus status={jo.status} />
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+        </Overlay>
     );
 }
 

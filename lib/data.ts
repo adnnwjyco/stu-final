@@ -136,6 +136,24 @@ export async function getPelanggan(cari?: string): Promise<PelangganRow[]> {
     );
 }
 
+export async function getPelangganById(id: string): Promise<PelangganRow | null> {
+    const rows = await query<PelangganRow>("SELECT id, nama, nomor_telepon, email FROM pelanggan WHERE id = $1", [id]);
+    return rows[0] ?? null;
+}
+
+export async function getJobOrdersPelanggan(idPelanggan: string): Promise<JobOrderRow[]> {
+    return query<JobOrderRow>(
+        `SELECT jo.nomor, jo.id_pelanggan, p.nama AS nama_pelanggan, jo.tanggal_terima, jo.tanggal_selesai,
+                jo.persentase, jo.status, jo.divisi_pengerjaan
+         FROM job_orders jo
+         JOIN pelanggan p ON p.id = jo.id_pelanggan
+         WHERE jo.id_pelanggan = $1
+         ORDER BY jo.tanggal_terima DESC, jo.nomor DESC
+         LIMIT 200`,
+        [idPelanggan]
+    );
+}
+
 export async function getAkun(): Promise<AkunRow[]> {
     return query<AkunRow>("SELECT id, username, divisi FROM users ORDER BY username");
 }

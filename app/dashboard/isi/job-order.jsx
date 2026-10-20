@@ -10,6 +10,7 @@ import {
     tambahProduk,
     ubahProduk,
     hapusProduk,
+    hapusJo,
 } from "@/app/actions/job-order";
 import { bolehAksi, bolehKelolaJo, divisiSetelah, LABEL_DIVISI, DAFTAR_DIVISI } from "@/lib/akses";
 import { useUser } from "../user-provider";
@@ -21,6 +22,7 @@ export function KelolaJobOrder({ onTambah }) {
     const user = useUser();
     const bolehTambah = bolehAksi(user.divisi, "tambah_job_order");
     const lihatSemua = bolehAksi(user.divisi, "lihat_semua_job_order");
+    const admin = user.divisi === "admin";
 
     const [daftar, setDaftar] = useState(null);
     const [cari, setCari] = useState("");
@@ -113,6 +115,7 @@ export function KelolaJobOrder({ onTambah }) {
                                     idBuka={idBuka}
                                     setIdBuka={setIdBuka}
                                     segarkan={segarkan}
+                                    admin={admin}
                                 />
                             ))}
                         </tbody>
@@ -123,8 +126,20 @@ export function KelolaJobOrder({ onTambah }) {
     );
 }
 
-function JobOrderBaris({ row, kolom, lihatSemua, idBuka, setIdBuka, segarkan }) {
+function JobOrderBaris({ row, kolom, lihatSemua, idBuka, setIdBuka, segarkan, admin }) {
     const terbuka = idBuka === row.nomor;
+
+    const hapus = async () => {
+        const fd = new FormData();
+        fd.set("nomor", row.nomor);
+        const hasil = await hapusJo(fd);
+        if (hasil?.errors) alert(hasil.errors[0]);
+        else {
+            setIdBuka(null);
+            segarkan();
+        }
+    };
+
     return (
         <>
             <tr className="border-b border-slate-100 hover:bg-slate-50">
@@ -143,10 +158,21 @@ function JobOrderBaris({ row, kolom, lihatSemua, idBuka, setIdBuka, segarkan }) 
                 <td className="p-2">
                     <BadgeStatus status={row.status} />
                 </td>
-                <td className="p-2">
+                <td className="p-2 flex gap-2">
                     <button type="button" onClick={() => setIdBuka(terbuka ? null : row.nomor)} className={KELAS_TOMBOL_KECIL}>
                         {terbuka ? "Tutup" : "Detail"}
                     </button>
+                    {admin && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (confirm(`Hapus job order ${row.nomor} permanen?`)) hapus();
+                            }}
+                            className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
+                        >
+                            Hapus
+                        </button>
+                    )}
                 </td>
             </tr>
             {terbuka && (

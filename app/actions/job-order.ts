@@ -78,10 +78,12 @@ export async function tambahJobOrder(_prev: StateJobOrder, formData: FormData): 
 
     try {
         const nomor = await jalankanTransaksi(async (q) => {
-            const r = await q<{ nomor: string }>(
-                "SELECT 'JO/STU/' || LPAD(nextval('job_orders_seq')::text, 4, '0') AS nomor"
+            await q("SELECT pg_advisory_xact_lock(hashtext('job_orders_nomor'))");
+            const r = await q<{ n: number }>(
+                `SELECT COALESCE(MAX(CASE WHEN nomor ~ '^JO/STU/[0-9]+$' THEN substring(nomor from 8)::int END), 0) + 1 AS n
+                 FROM job_orders`
             );
-            const kode = r[0].nomor;
+            const kode = `JO/STU/${String(r[0].n).padStart(4, "0")}`;
             await q(
                 `INSERT INTO job_orders (nomor, id_pelanggan, tanggal_terima, tanggal_selesai, divisi_pengerjaan)
                  VALUES ($1, $2, $3::date, $4::date, 'desainer')`,
@@ -241,6 +243,24 @@ export async function batalkanJo(_prev: StateJobOrder, formData: FormData): Prom
     } catch (err) {
         console.error("Gagal batalkan JO:", err);
         return { errors: { umum: ["Gagal menyimpan, coba lagi"] } };
+    }
+}
+
+export async function hapusJo(formData: FormData): Promise<StateRingkas> {
+    const user = await getCurrentUser();
+    if (user.divisi !== "admin") return { errors: ["Hanya admin yang boleh menghapus"] };
+
+    const nomor = String(formData.get("nomor") ?? "");
+    const jo = await ambilJo(nomor);
+    if (!jo) return { errors: ["Job order tidak ditemukan"] };
+
+    try {
+        await query("DELETE FROM job_orders WHERE nomor = $1", [nomor]);
+        await catatAksi({ userId: user.id, username: user.username, aksi: "hapus_job_order", detail: `${nomor} dihapus permanen` });
+        return { berhasil: true };
+    } catch (err) {
+        console.error("Gagal hapus JO:", err);
+        return { errors: ["Gagal menghapus, coba lagi"] };
     }
 }
 

@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 export const LABEL_STATUS = { pending: "Pending", proses: "Proses", selesai: "Selesai", dibatalkan: "Dibatalkan" };
 
 export const KELAS_STATUS = {
@@ -50,4 +52,33 @@ export function PesanGagal({ pesan }) {
 export function PesanBerhasil({ tampil }) {
     if (!tampil) return null;
     return <p className="text-sm text-emerald-700">Berhasil disimpan.</p>;
+}
+
+export function Overlay({ judul, onTutup, children }) {
+    useEffect(() => {
+        const tekan = (e) => {
+            if (e.key === "Escape") onTutup();
+        };
+        document.addEventListener("keydown", tekan);
+        return () => document.removeEventListener("keydown", tekan);
+    }, [onTutup]);
+
+    return (
+        <div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) onTutup();
+            }}
+        >
+            <div role="dialog" aria-modal="true" aria-label={judul} className="bg-white w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+                <div className="flex items-center justify-between gap-4 p-4 border-b border-slate-200 sticky top-0 bg-white">
+                    <h2 className="text-sm font-semibold text-slate-700">{judul}</h2>
+                    <button type="button" onClick={onTutup} aria-label="Tutup" className={KELAS_TOMBOL_KECIL}>
+                        ✕
+                    </button>
+                </div>
+                <div className="p-4 flex flex-col gap-4">{children}</div>
+            </div>
+        </div>
+    );
 }

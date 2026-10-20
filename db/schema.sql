@@ -31,8 +31,6 @@ CREATE TABLE IF NOT EXISTS pelanggan (
     email               VARCHAR(255)
 );
 
-CREATE SEQUENCE IF NOT EXISTS job_orders_seq;
-
 CREATE TABLE IF NOT EXISTS job_orders (
     nomor               VARCHAR(20) PRIMARY KEY,
     id_pelanggan        UUID NOT NULL REFERENCES pelanggan(id),

@@ -53,6 +53,9 @@ async function upgradeLama() {
         await pool.query("DROP TABLE IF EXISTS job_order_produk CASCADE");
         await pool.query("DROP TABLE IF EXISTS job_orders CASCADE");
     }
+
+    console.log("• Menyingkirkan sequence penomoran JO lama (diganti MAX+1 gapless)...");
+    await pool.query("DROP SEQUENCE IF EXISTS job_orders_seq");
 }
 
 async function seed() {
@@ -102,7 +105,6 @@ async function seed() {
             `INSERT INTO job_order_produk (nomor, nama, jumlah, keterangan) VALUES ($1, 'Duct AC', 2, 'Kabin')`,
             [j2.rows[0].nomor]
         );
-        await pool.query("SELECT setval('job_orders_seq', GREATEST((SELECT COALESCE(MAX(x.n), 0) FROM (SELECT substring(nomor from 11)::int AS n FROM job_orders WHERE nomor ~ '^JO/STU/[0-9]+$') x), 1))");
         console.log("✔ Data contoh job order & produk dibuat (JO/STU/0001, JO/STU/0002)");
     }
 }
