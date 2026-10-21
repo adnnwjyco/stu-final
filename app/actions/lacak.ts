@@ -2,6 +2,7 @@
 
 import { query } from "@/lib/db";
 import { PIPELINE, LABEL_DIVISI, type Divisi } from "@/lib/akses";
+import { normalisasiNomor } from "@/lib/nomor";
 
 export type LangkahLacak = {
     divisi: Divisi;
@@ -37,20 +38,13 @@ const DESKRIPSI_LANGKAH: Partial<Record<Divisi, string>> = {
     gudang: "Penyiapan di gudang & pengiriman",
 };
 
-function normalisasiNomor(raw: string): string | null {
-    const s = raw.trim().toUpperCase().replace(/\s+/g, "");
-    const m = s.match(/^(?:JO\/?STU\/?)?(\d{1,6})$/);
-    if (!m) return null;
-    return `JO/STU/${m[1].padStart(4, "0")}`;
-}
-
 export async function lacakJobOrder(_prev: StateLacak, formData: FormData): Promise<StateLacak> {
     const raw = String(formData.get("nomor") ?? "");
     if (!raw.trim()) return { errors: { nomor: ["Nomor job order wajib diisi"] } };
     if (raw.trim().length > 30) return { errors: { nomor: ["Nomor job order tidak valid"] } };
 
     const nomor = normalisasiNomor(raw);
-    if (!nomor) return { errors: { nomor: ["Format nomor tidak valid. Contoh: JO/STU/0001"] } };
+    if (!nomor) return { errors: { nomor: ["Format nomor tidak valid. Contoh: PRP/2026/X/0001"] } };
 
     try {
         const rows = await query<{

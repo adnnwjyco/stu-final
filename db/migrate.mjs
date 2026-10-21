@@ -83,11 +83,25 @@ async function seed() {
             pelId = baru.rows[0].id;
         }
 
+        const BULAN_ROMAWI = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+        const hariIni = new Date();
+        const tanggal1 = new Date(hariIni);
+        tanggal1.setDate(tanggal1.getDate() - 3);
+        const tanggal2 = new Date(hariIni);
+        tanggal2.setDate(tanggal2.getDate() - 10);
+        const tanggal3 = new Date(hariIni);
+        tanggal3.setDate(tanggal3.getDate() + 7);
+        const tanggal4 = new Date(hariIni);
+        tanggal4.setDate(tanggal4.getDate() - 2);
+        const iso = (d) => d.toISOString().slice(0, 10);
+        const nomor1 = `PRP/${tanggal1.getFullYear()}/${BULAN_ROMAWI[tanggal1.getMonth()]}/0001`;
+        const nomor2 = `PRP/${tanggal2.getFullYear()}/${BULAN_ROMAWI[tanggal2.getMonth()]}/0002`;
+
         const j1 = await pool.query(
             `INSERT INTO job_orders (nomor, id_pelanggan, tanggal_terima, tanggal_selesai, persentase, status, divisi_pengerjaan)
-             VALUES ('JO/STU/0001', $1, CURRENT_DATE - 3, CURRENT_DATE + 7, 40, 'proses', 'desainer')
+             VALUES ($1, $2, $3::date, $4::date, 40, 'proses', 'desainer')
              RETURNING nomor`,
-            [pelId]
+            [nomor1, pelId, iso(tanggal1), iso(tanggal3)]
         );
         await pool.query(
             `INSERT INTO job_order_produk (nomor, nama, jumlah, keterangan) VALUES
@@ -97,15 +111,15 @@ async function seed() {
         );
         const j2 = await pool.query(
             `INSERT INTO job_orders (nomor, id_pelanggan, tanggal_terima, tanggal_selesai, persentase, status, divisi_pengerjaan)
-             VALUES ('JO/STU/0002', $1, CURRENT_DATE - 10, CURRENT_DATE - 2, 100, 'selesai', NULL)
+             VALUES ($1, $2, $3::date, $4::date, 100, 'selesai', NULL)
              RETURNING nomor`,
-            [pelId]
+            [nomor2, pelId, iso(tanggal2), iso(tanggal4)]
         );
         await pool.query(
             `INSERT INTO job_order_produk (nomor, nama, jumlah, keterangan) VALUES ($1, 'Duct AC', 2, 'Kabin')`,
             [j2.rows[0].nomor]
         );
-        console.log("✔ Data contoh job order & produk dibuat (JO/STU/0001, JO/STU/0002)");
+        console.log(`✔ Data contoh job order & produk dibuat (${nomor1}, ${nomor2})`);
     }
 }
 

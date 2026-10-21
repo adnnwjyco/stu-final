@@ -81,8 +81,9 @@ export default function LacakJobOrder() {
                 <input
                     type="text"
                     name="nomor"
-                    placeholder="Nomor Job Order (contoh: JO/STU/0001)"
+                    placeholder="Nomor Job Order (contoh: PRP/2026/X/0001)"
                     autoComplete="off"
+                    required
                     maxLength={30}
                     className="p-2 w-full md:flex-4 border border-slate-200 focus:outline-none"
                 />

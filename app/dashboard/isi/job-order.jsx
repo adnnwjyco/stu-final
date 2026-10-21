@@ -231,7 +231,7 @@ function FormProgress({ row, segarkan }) {
             <input type="hidden" name="nomor" value={row.nomor} />
             <div className="flex flex-col gap-1">
                 <label className={KELAS_LABEL}>Persentase</label>
-                <input type="number" name="persentase" min="0" max="100" defaultValue={row.persentase} className={`${KELAS_INPUT} w-24`} />
+                <input type="number" name="persentase" min="0" max="100" required defaultValue={row.persentase} className={`${KELAS_INPUT} w-24`} />
             </div>
             <div className="flex flex-col gap-1">
                 <label className={KELAS_LABEL}>Status</label>
@@ -383,11 +383,11 @@ function FormUbahProduk({ produk, onSelesai }) {
             <input type="hidden" name="id_produk" value={produk.id} />
             <div className="flex flex-col gap-1">
                 <label className={KELAS_LABEL}>Nama</label>
-                <input name="nama" type="text" defaultValue={produk.nama} className={KELAS_INPUT} />
+                <input name="nama" type="text" defaultValue={produk.nama} required className={KELAS_INPUT} />
             </div>
             <div className="flex flex-col gap-1">
                 <label className={KELAS_LABEL}>Jumlah</label>
-                <input name="jumlah" type="number" min="0" step="any" defaultValue={produk.jumlah} className={`${KELAS_INPUT} w-24`} />
+                <input name="jumlah" type="number" min="0" step="any" defaultValue={produk.jumlah} required className={`${KELAS_INPUT} w-24`} />
             </div>
             <div className="flex flex-col gap-1">
                 <label className={KELAS_LABEL}>Keterangan</label>
@@ -418,11 +418,11 @@ function FormTambahProduk({ nomor, segarkan }) {
             <input type="hidden" name="nomor" value={nomor} />
             <div className="flex flex-col gap-1">
                 <label className={KELAS_LABEL}>Produk baru</label>
-                <input name="nama" type="text" placeholder="Nama produk" className={KELAS_INPUT} />
+                <input name="nama" type="text" placeholder="Nama produk" required className={KELAS_INPUT} />
             </div>
             <div className="flex flex-col gap-1">
                 <label className={KELAS_LABEL}>Jumlah</label>
-                <input name="jumlah" type="number" min="0" step="any" placeholder="1" className={`${KELAS_INPUT} w-24`} />
+                <input name="jumlah" type="number" min="0" step="any" placeholder="1" required className={`${KELAS_INPUT} w-24`} />
             </div>
             <div className="flex flex-col gap-1">
                 <label className={KELAS_LABEL}>Keterangan</label>
@@ -543,14 +543,28 @@ export function TambahJobOrder({ onTambahPelanggan }) {
             </div>
 
             <div className="flex flex-wrap gap-3">
+                <div className="flex flex-col gap-1">
+                    <label className={KELAS_LABEL}>Nomor Job Order</label>
+                    <input
+                        name="nomor"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="0001"
+                        required
+                        className={`${KELAS_INPUT} w-32`}
+                    />
+                    <p className="text-xs text-slate-400">Hanya angka (contoh: 0001). Otomatis menjadi PRP/2026/X/0001 — tahun &amp; bulan romawi dari tanggal terima</p>
+                    <PesanGagal pesan={state?.errors?.nomor} />
+                </div>
                 <div className="flex flex-col gap-1 flex-1 min-w-40">
                     <label className={KELAS_LABEL}>Tanggal Terima</label>
-                    <input name="tanggal_terima" type="date" defaultValue={hariIni} className={KELAS_INPUT} />
+                    <input name="tanggal_terima" type="date" defaultValue={hariIni} required className={KELAS_INPUT} />
                     <PesanGagal pesan={state?.errors?.tanggal_terima} />
                 </div>
                 <div className="flex flex-col gap-1 flex-1 min-w-40">
                     <label className={KELAS_LABEL}>Tanggal Selesai</label>
-                    <input name="tanggal_selesai" type="date" className={KELAS_INPUT} />
+                    <input name="tanggal_selesai" type="date" required className={KELAS_INPUT} />
                     <PesanGagal pesan={state?.errors?.tanggal_selesai} />
                 </div>
             </div>
@@ -566,6 +580,7 @@ export function TambahJobOrder({ onTambahPelanggan }) {
                                 name="produk_nama"
                                 type="text"
                                 value={b.nama}
+                                required
                                 onChange={(e) => setBaris(baris.map((x) => (x.uid === b.uid ? { ...x, nama: e.target.value } : x)))}
                                 className={KELAS_INPUT}
                             />
@@ -578,6 +593,7 @@ export function TambahJobOrder({ onTambahPelanggan }) {
                                 min="0"
                                 step="any"
                                 value={b.jumlah}
+                                required
                                 onChange={(e) => setBaris(baris.map((x) => (x.uid === b.uid ? { ...x, jumlah: e.target.value } : x)))}
                                 className={KELAS_INPUT}
                             />

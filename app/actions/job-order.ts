@@ -4,11 +4,13 @@ import { query, jalankanTransaksi } from "@/lib/db";
 import { catatAksi } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/dal";
 import { bolehAksi, divisiSetelah, divisiValid, LABEL_DIVISI, type Divisi, type Pengguna } from "@/lib/akses";
+import { susunNomorPrp } from "@/lib/nomor";
 
 type BentukJobOrder = {
     errors?: {
         umum?: string[];
         pelanggan?: string[];
+        nomor?: string[];
         tanggal_terima?: string[];
         tanggal_selesai?: string[];
         produk?: string[];
@@ -63,9 +65,12 @@ export async function tambahJobOrder(_prev: StateJobOrder, formData: FormData): 
     const idPelanggan = String(formData.get("id_pelanggan") ?? "");
     const tanggalTerima = String(formData.get("tanggal_terima") ?? "");
     const tanggalSelesai = String(formData.get("tanggal_selesai") ?? "");
+    const nomorManual = String(formData.get("nomor") ?? "").trim();
 
     const errors: BentukJobOrder["errors"] = {};
     if (!idPelanggan) errors.pelanggan = ["Pelanggan wajib dipilih"];
+    if (!nomorManual) errors.nomor = ["Nomor job order wajib diisi"];
+    else if (!/^\d{1,6}$/.test(nomorManual)) errors.nomor = ["Nomor harus berupa angka 1-6 digit (contoh: 0001)"];
     if (!tanggalTerima) errors.tanggal_terima = ["Tanggal terima wajib diisi"];
     if (!tanggalSelesai) errors.tanggal_selesai = ["Tanggal selesai wajib diisi"];
     if (!errors.tanggal_terima && !errors.tanggal_selesai && tanggalSelesai < tanggalTerima) {
@@ -76,14 +81,14 @@ export async function tambahJobOrder(_prev: StateJobOrder, formData: FormData): 
     if (hasilProduk.errors) errors.produk = hasilProduk.errors;
     if (Object.keys(errors).length > 0) return { errors };
 
+    const kode = susunNomorPrp(tanggalTerima, nomorManual);
+    if (!kode) return { errors: { tanggal_terima: ["Tanggal terima tidak valid"] } };
+
     try {
         const nomor = await jalankanTransaksi(async (q) => {
             await q("SELECT pg_advisory_xact_lock(hashtext('job_orders_nomor'))");
-            const r = await q<{ n: number }>(
-                `SELECT COALESCE(MAX(CASE WHEN nomor ~ '^JO/STU/[0-9]+$' THEN substring(nomor from 8)::int END), 0) + 1 AS n
-                 FROM job_orders`
-            );
-            const kode = `JO/STU/${String(r[0].n).padStart(4, "0")}`;
+            const ada = await q("SELECT 1 FROM job_orders WHERE nomor = $1", [kode]);
+            if (ada.length > 0) return null;
             await q(
                 `INSERT INTO job_orders (nomor, id_pelanggan, tanggal_terima, tanggal_selesai, divisi_pengerjaan)
                  VALUES ($1, $2, $3::date, $4::date, 'desainer')`,
@@ -98,6 +103,8 @@ export async function tambahJobOrder(_prev: StateJobOrder, formData: FormData): 
             return kode;
         });
 
+        if (!nomor) return { errors: { nomor: [`Nomor ${kode} sudah digunakan, silakan ganti`] } };
+
         await catatAksi({
             userId: user.id,
             username: user.username,
@@ -107,6 +114,9 @@ export async function tambahJobOrder(_prev: StateJobOrder, formData: FormData): 
         return { berhasil: true, pesan: `Job order ${nomor} berhasil dibuat.` };
     } catch (err) {
         console.error("Gagal tambah job order:", err);
+        if ((err as { code?: string })?.code === "23505") {
+            return { errors: { nomor: [`Nomor ${kode} sudah digunakan, silakan ganti`] } };
+        }
         return { errors: { umum: ["Gagal menyimpan, coba lagi"] } };
     }
 }
