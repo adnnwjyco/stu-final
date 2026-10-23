@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { LABEL_DIVISI } from "@/lib/akses";
 import { BadgeStatus, ProgressBar, formatTanggal, Kosong } from "./util";
+import GrafikBulanan from "./grafik-bulanan";
 
 function Kartu({ label, nilai }) {
     return (
@@ -66,6 +67,14 @@ export default function Beranda() {
                     </>
                 )}
                 <Kartu label="Selesai" nilai={statistik.selesai} />
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <h2 className="text-sm font-semibold text-slate-600">
+                    Rangkuman Bulanan Job Order{lingkupDivisi ? ` di Divisi ${LABEL_DIVISI[statistik.divisi] ?? ""}` : ""}{" "}
+                    <span className="font-normal text-slate-400">(berdasarkan tanggal terima)</span>
+                </h2>
+                <GrafikBulanan data={statistik.bulanan ?? []} />
             </div>
 
             <div className="flex flex-col gap-2">

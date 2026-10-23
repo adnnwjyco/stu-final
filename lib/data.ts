@@ -11,6 +11,7 @@ export type Statistik = {
     selesai: number;
     dibatalkan: number;
     totalPelanggan: number;
+    bulanan: { bulan: string; jumlah: number }[];
 };
 
 export type JobOrderRow = {
@@ -22,6 +23,8 @@ export type JobOrderRow = {
     persentase: number;
     status: "pending" | "proses" | "selesai" | "dibatalkan";
     divisi_pengerjaan: Divisi | null;
+    menunggu_terima: boolean;
+    diterima_pada: string | null;
 };
 
 export type ProdukRow = {
@@ -68,6 +71,7 @@ export async function getStatistik(lingkupDivisi?: Divisi): Promise<Statistik> {
         FROM job_orders ${where}
     `, param);
     const [pel] = await query<{ total: number }>("SELECT COUNT(*)::int AS total FROM pelanggan");
+    const bulanan = await getStatistikBulanan(lingkupDivisi);
     return {
         lingkup: lingkupDivisi ? "divisi" : "semua",
         divisi: lingkupDivisi ?? null,
@@ -77,7 +81,25 @@ export async function getStatistik(lingkupDivisi?: Divisi): Promise<Statistik> {
         selesai: job?.selesai ?? 0,
         dibatalkan: job?.dibatalkan ?? 0,
         totalPelanggan: lingkupDivisi ? 0 : (pel?.total ?? 0),
+        bulanan,
     };
+}
+
+export async function getStatistikBulanan(lingkupDivisi?: Divisi): Promise<{ bulan: string; jumlah: number }[]> {
+    const param: unknown[] = [];
+    let where = "";
+    if (lingkupDivisi) {
+        param.push(lingkupDivisi);
+        where = "WHERE divisi_pengerjaan = $1::divisi_enum";
+    }
+    return query<{ bulan: string; jumlah: number }>(
+        `SELECT to_char(date_trunc('month', tanggal_terima), 'YYYY-MM') AS bulan,
+                COUNT(*)::int AS jumlah
+         FROM job_orders ${where}
+         GROUP BY 1
+         ORDER BY 1`,
+        param
+    );
 }
 
 export type SaringanJobOrder = {
@@ -105,7 +127,7 @@ export async function getJobOrders(saringan: SaringanJobOrder = {}): Promise<Job
     const where = kondisi.length ? `WHERE ${kondisi.join(" AND ")}` : "";
     return query<JobOrderRow>(
         `SELECT jo.nomor, jo.id_pelanggan, p.nama AS nama_pelanggan, jo.tanggal_terima, jo.tanggal_selesai,
-                jo.persentase, jo.status, jo.divisi_pengerjaan
+                jo.persentase, jo.status, jo.divisi_pengerjaan, jo.menunggu_terima, jo.diterima_pada
          FROM job_orders jo
          JOIN pelanggan p ON p.id = jo.id_pelanggan
          ${where}
@@ -144,7 +166,7 @@ export async function getPelangganById(id: string): Promise<PelangganRow | null>
 export async function getJobOrdersPelanggan(idPelanggan: string): Promise<JobOrderRow[]> {
     return query<JobOrderRow>(
         `SELECT jo.nomor, jo.id_pelanggan, p.nama AS nama_pelanggan, jo.tanggal_terima, jo.tanggal_selesai,
-                jo.persentase, jo.status, jo.divisi_pengerjaan
+                jo.persentase, jo.status, jo.divisi_pengerjaan, jo.menunggu_terima, jo.diterima_pada
          FROM job_orders jo
          JOIN pelanggan p ON p.id = jo.id_pelanggan
          WHERE jo.id_pelanggan = $1

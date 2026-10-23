@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { tambahPelanggan, ubahPelanggan, hapusPelanggan } from "@/app/actions/pelanggan";
 import { bolehAksi, LABEL_DIVISI } from "@/lib/akses";
 import { useUser } from "../user-provider";
-import { Kosong, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, PesanGagal, PesanBerhasil, Overlay, BadgeStatus, ProgressBar, formatTanggal } from "./util";
+import { Kosong, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, PesanGagal, PesanBerhasil, Overlay, KonfirmasiHapus, BadgeStatus, ProgressBar, formatTanggal } from "./util";
 
 export function KelolaPelanggan({ onTambah }) {
     const user = useUser();
@@ -16,8 +16,27 @@ export function KelolaPelanggan({ onTambah }) {
     const [idDetail, setIdDetail] = useState(null);
     const [gagal, setGagal] = useState(false);
     const [muat, setMuat] = useState(0);
+    const [rowHapus, setRowHapus] = useState(null);
+    const [hapusPending, setHapusPending] = useState(false);
+    const [hapusError, setHapusError] = useState(null);
 
     const segarkan = () => setMuat((n) => n + 1);
+
+    const konfirmasiHapus = async () => {
+        if (!rowHapus) return;
+        setHapusPending(true);
+        setHapusError(null);
+        const fd = new FormData();
+        fd.set("id", rowHapus.id);
+        const hasil = await hapusPelanggan(fd);
+        setHapusPending(false);
+        if (hasil?.errors) {
+            setHapusError(hasil.errors[0]);
+        } else {
+            setRowHapus(null);
+            segarkan();
+        }
+    };
 
     useEffect(() => {
         let batal = false;
@@ -89,6 +108,10 @@ export function KelolaPelanggan({ onTambah }) {
                                     setIdEdit={setIdEdit}
                                     setIdDetail={setIdDetail}
                                     segarkan={segarkan}
+                                    onMintaHapus={() => {
+                                        setHapusError(null);
+                                        setRowHapus(p);
+                                    }}
                                 />
                             ))}
                         </tbody>
@@ -96,21 +119,24 @@ export function KelolaPelanggan({ onTambah }) {
                 </div>
             )}
 
+            {rowHapus && (
+                <KonfirmasiHapus
+                    judul="Hapus Pelanggan"
+                    pesan={`Hapus pelanggan "${rowHapus.nama}"? Pelanggan hanya dapat dihapus jika belum memiliki job order. Data tidak dapat dikembalikan.`}
+                    onBatal={() => setRowHapus(null)}
+                    onHapus={konfirmasiHapus}
+                    pending={hapusPending}
+                    error={hapusError}
+                />
+            )}
+
             {idDetail && <DetailPelanggan id={idDetail} onTutup={() => setIdDetail(null)} />}
         </div>
     );
 }
 
-function PelangganBaris({ row, bolehKelola, idEdit, setIdEdit, setIdDetail, segarkan }) {
+function PelangganBaris({ row, bolehKelola, idEdit, setIdEdit, setIdDetail, segarkan, onMintaHapus }) {
     const terbuka = idEdit === row.id;
-
-    const hapus = async () => {
-        const fd = new FormData();
-        fd.set("id", row.id);
-        const hasil = await hapusPelanggan(fd);
-        if (hasil?.errors) alert(hasil.errors[0]);
-        else segarkan();
-    };
 
     return (
         <>
@@ -128,9 +154,7 @@ function PelangganBaris({ row, bolehKelola, idEdit, setIdEdit, setIdDetail, sega
                         </button>
                         <button
                             type="button"
-                            onClick={() => {
-                                if (confirm(`Hapus pelanggan "${row.nama}"?`)) hapus();
-                            }}
+                            onClick={onMintaHapus}
                             className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
                         >
                             Hapus

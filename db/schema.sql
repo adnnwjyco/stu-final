@@ -38,10 +38,27 @@ CREATE TABLE IF NOT EXISTS job_orders (
     tanggal_selesai     DATE NOT NULL,
     persentase          INT NOT NULL DEFAULT 0,
     status              status_job_enum NOT NULL DEFAULT 'pending',
-    divisi_pengerjaan   divisi_enum
+    divisi_pengerjaan   divisi_enum,
+    menunggu_terima     BOOLEAN NOT NULL DEFAULT FALSE,
+    diterima_pada       TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS job_orders_divisi_idx ON job_orders (divisi_pengerjaan);
+
+ALTER TABLE job_orders ADD COLUMN IF NOT EXISTS menunggu_terima BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE job_orders ADD COLUMN IF NOT EXISTS diterima_pada TIMESTAMPTZ;
+
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'job_orders' AND column_name = 'diterima_pada'
+          AND data_type = 'timestamp without time zone'
+    ) THEN
+        ALTER TABLE job_orders
+            ALTER COLUMN diterima_pada TYPE TIMESTAMPTZ
+            USING diterima_pada AT TIME ZONE 'UTC';
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS job_order_produk (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),

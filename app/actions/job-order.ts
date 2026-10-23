@@ -33,7 +33,9 @@ async function ambilJo(nomor: string) {
         nomor: string;
         status: "pending" | "proses" | "selesai" | "dibatalkan";
         divisi_pengerjaan: Divisi | null;
-    }>("SELECT nomor, status, divisi_pengerjaan FROM job_orders WHERE nomor = $1", [nomor]);
+        menunggu_terima: boolean;
+        diterima_pada: Date | null;
+    }>("SELECT nomor, status, divisi_pengerjaan, menunggu_terima, diterima_pada FROM job_orders WHERE nomor = $1", [nomor]);
     return rows[0] ?? null;
 }
 
@@ -90,8 +92,8 @@ export async function tambahJobOrder(_prev: StateJobOrder, formData: FormData): 
             const ada = await q("SELECT 1 FROM job_orders WHERE nomor = $1", [kode]);
             if (ada.length > 0) return null;
             await q(
-                `INSERT INTO job_orders (nomor, id_pelanggan, tanggal_terima, tanggal_selesai, divisi_pengerjaan)
-                 VALUES ($1, $2, $3::date, $4::date, 'desainer')`,
+                `INSERT INTO job_orders (nomor, id_pelanggan, tanggal_terima, tanggal_selesai, divisi_pengerjaan, menunggu_terima)
+                 VALUES ($1, $2, $3::date, $4::date, 'desainer', TRUE)`,
                 [kode, idPelanggan, tanggalTerima, tanggalSelesai]
             );
             for (const p of hasilProduk.data!) {
@@ -109,9 +111,9 @@ export async function tambahJobOrder(_prev: StateJobOrder, formData: FormData): 
             userId: user.id,
             username: user.username,
             aksi: "tambah_job_order",
-            detail: `Job order ${nomor} dibuat, dikerjakan ${LABEL_DIVISI.desainer}`,
+            detail: `Job order ${nomor} dibuat, dikerjakan ${LABEL_DIVISI.desainer}, menunggu konfirmasi penerimaan`,
         });
-        return { berhasil: true, pesan: `Job order ${nomor} berhasil dibuat.` };
+        return { berhasil: true, pesan: `Job order ${nomor} berhasil dibuat, menunggu konfirmasi terima oleh ${LABEL_DIVISI.desainer}.` };
     } catch (err) {
         console.error("Gagal tambah job order:", err);
         if ((err as { code?: string })?.code === "23505") {
@@ -141,6 +143,7 @@ export async function ubahProgress(_prev: StateJobOrder, formData: FormData): Pr
         return { errors: { umum: ["Job order sudah ditutup"] } };
     }
     if (!bolehKelola(user, jo)) return { errors: { umum: ["Anda tidak berwenang mengelola job order ini"] } };
+    if (jo.menunggu_terima) return { errors: { umum: ["Anda belum mengkonfirmasi penerimaan job order ini"] } };
 
     try {
         await query("UPDATE job_orders SET persentase = $1, status = $2::status_job_enum WHERE nomor = $3", [
@@ -161,6 +164,35 @@ export async function ubahProgress(_prev: StateJobOrder, formData: FormData): Pr
     }
 }
 
+export async function terimaJo(_prev: StateJobOrder, formData: FormData): Promise<StateJobOrder> {
+    const user = await getCurrentUser();
+
+    const nomor = String(formData.get("nomor") ?? "");
+    const jo = await ambilJo(nomor);
+    if (!jo) return { errors: { umum: ["Job order tidak ditemukan"] } };
+    if (jo.status === "selesai" || jo.status === "dibatalkan" || !jo.divisi_pengerjaan) {
+        return { errors: { umum: ["Job order sudah tidak aktif"] } };
+    }
+    if (user.divisi !== jo.divisi_pengerjaan) {
+        return { errors: { umum: ["Hanya divisi penerima yang boleh mengkonfirmasi penerimaan"] } };
+    }
+    if (!jo.menunggu_terima) return { errors: { umum: ["Job order sudah diterima"] } };
+
+    try {
+        await query("UPDATE job_orders SET menunggu_terima = FALSE, diterima_pada = now() WHERE nomor = $1", [nomor]);
+        await catatAksi({
+            userId: user.id,
+            username: user.username,
+            aksi: "terima_job_order",
+            detail: `${nomor} diterima oleh ${LABEL_DIVISI[jo.divisi_pengerjaan]}`,
+        });
+        return { berhasil: true, pesan: "Job order diterima. Durasi pengerjaan mulai dihitung." };
+    } catch (err) {
+        console.error("Gagal terima JO:", err);
+        return { errors: { umum: ["Gagal menyimpan, coba lagi"] } };
+    }
+}
+
 export async function serahTerima(_prev: StateJobOrder, formData: FormData): Promise<StateJobOrder> {
     const user = await getCurrentUser();
 
@@ -171,26 +203,27 @@ export async function serahTerima(_prev: StateJobOrder, formData: FormData): Pro
         return { errors: { umum: ["Job order sudah tidak aktif"] } };
     }
     if (!bolehKelola(user, jo)) return { errors: { umum: ["Anda tidak berwenang"] } };
+    if (jo.menunggu_terima) return { errors: { umum: ["Anda belum mengkonfirmasi penerimaan job order ini"] } };
 
     const berikutnya = divisiSetelah(jo.divisi_pengerjaan);
 
     try {
         if (berikutnya) {
             await query(
-                "UPDATE job_orders SET divisi_pengerjaan = $1::divisi_enum, status = 'proses' WHERE nomor = $2",
+                "UPDATE job_orders SET divisi_pengerjaan = $1::divisi_enum, status = 'proses', menunggu_terima = TRUE, diterima_pada = NULL WHERE nomor = $2",
                 [berikutnya, nomor]
             );
             await catatAksi({
                 userId: user.id,
                 username: user.username,
                 aksi: "serah_terima",
-                detail: `${nomor} diserahkan dari ${LABEL_DIVISI[jo.divisi_pengerjaan]} ke ${LABEL_DIVISI[berikutnya]}`,
+                detail: `${nomor} diserahkan dari ${LABEL_DIVISI[jo.divisi_pengerjaan]} ke ${LABEL_DIVISI[berikutnya]}, menunggu konfirmasi penerimaan`,
             });
-            return { berhasil: true, pesan: `Diserahkan ke ${LABEL_DIVISI[berikutnya]}.` };
+            return { berhasil: true, pesan: `Diserahkan ke ${LABEL_DIVISI[berikutnya]}, menunggu konfirmasi terima.` };
         }
 
         await query(
-            "UPDATE job_orders SET status = 'selesai', persentase = 100, divisi_pengerjaan = NULL WHERE nomor = $1",
+            "UPDATE job_orders SET status = 'selesai', persentase = 100, divisi_pengerjaan = NULL, menunggu_terima = FALSE, diterima_pada = NULL WHERE nomor = $1",
             [nomor]
         );
         await catatAksi({
@@ -221,14 +254,17 @@ export async function pindahDivisi(_prev: StateJobOrder, formData: FormData): Pr
     if (!divisiValid(divisiBaru)) return { errors: { divisi: ["Divisi tidak valid"] } };
 
     try {
-        await query("UPDATE job_orders SET divisi_pengerjaan = $1::divisi_enum WHERE nomor = $2", [divisiBaru, nomor]);
+        await query(
+            "UPDATE job_orders SET divisi_pengerjaan = $1::divisi_enum, menunggu_terima = TRUE, diterima_pada = NULL WHERE nomor = $2",
+            [divisiBaru, nomor]
+        );
         await catatAksi({
             userId: user.id,
             username: user.username,
             aksi: "pindah_divisi",
-            detail: `${nomor} dipindah ke ${LABEL_DIVISI[divisiBaru]}`,
+            detail: `${nomor} dipindah ke ${LABEL_DIVISI[divisiBaru]}, menunggu konfirmasi penerimaan`,
         });
-        return { berhasil: true, pesan: `Dipindah ke ${LABEL_DIVISI[divisiBaru]}.` };
+        return { berhasil: true, pesan: `Dipindah ke ${LABEL_DIVISI[divisiBaru]}, menunggu konfirmasi terima.` };
     } catch (err) {
         console.error("Gagal pindah divisi:", err);
         return { errors: { umum: ["Gagal menyimpan, coba lagi"] } };
@@ -247,7 +283,10 @@ export async function batalkanJo(_prev: StateJobOrder, formData: FormData): Prom
     }
 
     try {
-        await query("UPDATE job_orders SET status = 'dibatalkan', divisi_pengerjaan = NULL WHERE nomor = $1", [nomor]);
+        await query(
+            "UPDATE job_orders SET status = 'dibatalkan', divisi_pengerjaan = NULL, menunggu_terima = FALSE, diterima_pada = NULL WHERE nomor = $1",
+            [nomor]
+        );
         await catatAksi({ userId: user.id, username: user.username, aksi: "batal_job_order", detail: `${nomor} dibatalkan` });
         return { berhasil: true, pesan: "Job order dibatalkan." };
     } catch (err) {

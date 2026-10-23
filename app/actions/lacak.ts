@@ -8,7 +8,7 @@ export type LangkahLacak = {
     divisi: Divisi;
     label: string;
     ket: string;
-    status: "selesai" | "aktif" | "menunggu" | "batal";
+    status: "selesai" | "aktif" | "konfirmasi" | "menunggu" | "batal";
 };
 
 export type HasilLacak = {
@@ -52,10 +52,11 @@ export async function lacakJobOrder(_prev: StateLacak, formData: FormData): Prom
             status: "pending" | "proses" | "selesai" | "dibatalkan";
             persentase: number;
             divisi_pengerjaan: Divisi | null;
+            menunggu_terima: boolean;
             tanggal_terima: string;
             tanggal_selesai: string;
         }>(
-            `SELECT nomor, status, persentase, divisi_pengerjaan,
+            `SELECT nomor, status, persentase, divisi_pengerjaan, menunggu_terima,
                     to_char(tanggal_terima, 'YYYY-MM-DD') AS tanggal_terima,
                     to_char(tanggal_selesai, 'YYYY-MM-DD') AS tanggal_selesai
              FROM job_orders WHERE nomor = $1`,
@@ -77,7 +78,7 @@ export async function lacakJobOrder(_prev: StateLacak, formData: FormData): Prom
             if (jo.status === "selesai") status = "selesai";
             else if (jo.status === "dibatalkan") status = "batal";
             else if (idx >= 0 && i < idx) status = "selesai";
-            else if (idx >= 0 && i === idx) status = "aktif";
+            else if (idx >= 0 && i === idx) status = jo.menunggu_terima ? "konfirmasi" : "aktif";
             else status = "menunggu";
             return {
                 divisi,

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import {
     tambahJobOrder,
     ubahProgress,
+    terimaJo,
     serahTerima,
     pindahDivisi,
     batalkanJo,
@@ -14,7 +15,7 @@ import {
 } from "@/app/actions/job-order";
 import { bolehAksi, bolehKelolaJo, divisiSetelah, LABEL_DIVISI, DAFTAR_DIVISI } from "@/lib/akses";
 import { useUser } from "../user-provider";
-import { BadgeStatus, ProgressBar, Kosong, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, PesanGagal, PesanBerhasil, formatTanggal } from "./util";
+import { BadgeStatus, ProgressBar, Kosong, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, PesanGagal, PesanBerhasil, KonfirmasiHapus, formatTanggal } from "./util";
 
 const DAFTAR_STATUS = ["pending", "proses", "selesai", "dibatalkan"];
 
@@ -30,8 +31,33 @@ export function KelolaJobOrder({ onTambah }) {
     const [idBuka, setIdBuka] = useState(null);
     const [gagal, setGagal] = useState(false);
     const [muat, setMuat] = useState(0);
+    const [rowHapus, setRowHapus] = useState(null);
+    const [hapusPending, setHapusPending] = useState(false);
+    const [hapusError, setHapusError] = useState(null);
 
     const segarkan = () => setMuat((n) => n + 1);
+
+    const mintaHapus = (row) => {
+        setHapusError(null);
+        setRowHapus(row);
+    };
+
+    const konfirmasiHapus = async () => {
+        if (!rowHapus) return;
+        setHapusPending(true);
+        setHapusError(null);
+        const fd = new FormData();
+        fd.set("nomor", rowHapus.nomor);
+        const hasil = await hapusJo(fd);
+        setHapusPending(false);
+        if (hasil?.errors) {
+            setHapusError(hasil.errors[0]);
+        } else {
+            setRowHapus(null);
+            setIdBuka(null);
+            segarkan();
+        }
+    };
 
     useEffect(() => {
         let batal = false;
@@ -116,29 +142,31 @@ export function KelolaJobOrder({ onTambah }) {
                                     setIdBuka={setIdBuka}
                                     segarkan={segarkan}
                                     admin={admin}
+                                    onMintaHapus={mintaHapus}
                                 />
                             ))}
                         </tbody>
                     </table>
                 </div>
             )}
+
+            {rowHapus && (
+                <KonfirmasiHapus
+                    judul="Hapus Job Order"
+                    pesan={`Hapus job order ${rowHapus.nomor} (${rowHapus.nama_pelanggan}) secara permanen? Seluruh data produk ikut terhapus dan tidak dapat dikembalikan.`}
+                    onBatal={() => setRowHapus(null)}
+                    onHapus={konfirmasiHapus}
+                    pending={hapusPending}
+                    error={hapusError}
+                />
+            )}
         </div>
     );
 }
 
-function JobOrderBaris({ row, kolom, lihatSemua, idBuka, setIdBuka, segarkan, admin }) {
+function JobOrderBaris({ row, kolom, lihatSemua, idBuka, setIdBuka, segarkan, admin, onMintaHapus }) {
     const terbuka = idBuka === row.nomor;
-
-    const hapus = async () => {
-        const fd = new FormData();
-        fd.set("nomor", row.nomor);
-        const hasil = await hapusJo(fd);
-        if (hasil?.errors) alert(hasil.errors[0]);
-        else {
-            setIdBuka(null);
-            segarkan();
-        }
-    };
+    const menunggu = row.status !== "selesai" && row.status !== "dibatalkan" && row.menunggu_terima;
 
     return (
         <>
@@ -157,6 +185,7 @@ function JobOrderBaris({ row, kolom, lihatSemua, idBuka, setIdBuka, segarkan, ad
                 </td>
                 <td className="p-2">
                     <BadgeStatus status={row.status} />
+                    {menunggu && <span className="block mt-1 px-2 py-0.5 border border-amber-300 bg-amber-100 text-amber-700 text-xs whitespace-nowrap">Menunggu terima</span>}
                 </td>
                 <td className="p-2 flex gap-2">
                     <button type="button" onClick={() => setIdBuka(terbuka ? null : row.nomor)} className={KELAS_TOMBOL_KECIL}>
@@ -165,9 +194,7 @@ function JobOrderBaris({ row, kolom, lihatSemua, idBuka, setIdBuka, segarkan, ad
                     {admin && (
                         <button
                             type="button"
-                            onClick={() => {
-                                if (confirm(`Hapus job order ${row.nomor} permanen?`)) hapus();
-                            }}
+                            onClick={() => onMintaHapus(row)}
                             className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
                         >
                             Hapus
@@ -192,12 +219,42 @@ function PanelJo({ row, segarkan }) {
     const admin = user.divisi === "admin";
     const aktif = row.status !== "selesai" && row.status !== "dibatalkan" && row.divisi_pengerjaan !== null;
     const berikut = row.divisi_pengerjaan ? divisiSetelah(row.divisi_pengerjaan) : null;
+    const penerima = row.divisi_pengerjaan !== null && user.divisi === row.divisi_pengerjaan;
+    const perluTerima = aktif && row.menunggu_terima && penerima;
+    const menungguInfo = aktif && row.menunggu_terima && !penerima;
+    const sudahDiterima = bolehKelola && aktif && !row.menunggu_terima;
 
     return (
         <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-col gap-4">
+            {perluTerima && (
+                <div className="bg-amber-50 border border-amber-200 p-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-col gap-1">
+                        <p className="text-sm font-semibold text-amber-800">Menunggu penerimaan</p>
+                        <p className="text-xs text-amber-700">
+                            Job order ini dititipkan ke divisi Anda. Klik &quot;Terima&quot; untuk mulai mengerjakan — durasi
+                            dihitung sejak diterima sampai diserahkan ke divisi berikutnya.
+                        </p>
+                    </div>
+                    <FormTerima row={row} segarkan={segarkan} />
+                </div>
+            )}
+
+            {menungguInfo && (
+                <div className="bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700">
+                    Menunggu konfirmasi penerimaan oleh {LABEL_DIVISI[row.divisi_pengerjaan]}.
+                </div>
+            )}
+
+            {sudahDiterima && row.diterima_pada && (
+                <div className="flex flex-wrap items-center gap-3 text-xs bg-white border border-slate-200 px-3 py-2 self-start">
+                    <span className="text-slate-500">Diterima {formatTanggal(row.diterima_pada)}</span>
+                    <DurasiDivisi sejak={row.diterima_pada} />
+                </div>
+            )}
+
             <div className="flex flex-wrap gap-6 items-start">
-                {bolehKelola && aktif && <FormProgress row={row} segarkan={segarkan} />}
-                {bolehKelola && aktif && <FormSerahTerima row={row} berikut={berikut} segarkan={segarkan} />}
+                {bolehKelola && aktif && !row.menunggu_terima && <FormProgress row={row} segarkan={segarkan} />}
+                {bolehKelola && aktif && !row.menunggu_terima && <FormSerahTerima row={row} berikut={berikut} segarkan={segarkan} />}
                 {admin && aktif && <FormAdminJo row={row} segarkan={segarkan} />}
             </div>
 
@@ -208,13 +265,57 @@ function PanelJo({ row, segarkan }) {
                 ) : (
                     <ul className="flex flex-col gap-2">
                         {row.produk.map((p) => (
-                            <ItemProduk key={p.id} produk={p} bolehKelola={bolehKelola} segarkan={segarkan} />
+                            <ItemProduk key={p.id} produk={p} bolehKelola={bolehKelola && !row.menunggu_terima} segarkan={segarkan} />
                         ))}
                     </ul>
                 )}
-                {bolehKelola && row.status !== "dibatalkan" && <FormTambahProduk nomor={row.nomor} segarkan={segarkan} />}
+                {bolehKelola && !row.menunggu_terima && row.status !== "dibatalkan" && <FormTambahProduk nomor={row.nomor} segarkan={segarkan} />}
             </div>
         </div>
+    );
+}
+
+function FormTerima({ row, segarkan }) {
+    const bungkus = async (prev, formData) => {
+        const hasil = await terimaJo(prev, formData);
+        if (hasil?.berhasil) segarkan();
+        return hasil;
+    };
+    const [state, action, pending] = useActionState(bungkus, undefined);
+
+    return (
+        <form action={action} className="flex flex-col gap-1">
+            <input type="hidden" name="nomor" value={row.nomor} />
+            <button type="submit" disabled={pending} className={KELAS_TOMBOL}>
+                {pending ? "Memproses..." : "✓ Terima Job Order"}
+            </button>
+            {state?.errors?.umum && <PesanGagal pesan={state.errors.umum} />}
+            {state?.pesan && <span className="text-xs text-emerald-700">{state.pesan}</span>}
+        </form>
+    );
+}
+
+function DurasiDivisi({ sejak }) {
+    const [kini, setKini] = useState(() => Date.now());
+
+    useEffect(() => {
+        const id = setInterval(() => setKini(Date.now()), 30000);
+        return () => clearInterval(id);
+    }, []);
+
+    const mulai = new Date(sejak).getTime();
+    if (Number.isNaN(mulai)) return null;
+
+    const total = Math.max(0, kini - mulai);
+    const menit = Math.floor(total / 60000);
+    const jam = Math.floor(menit / 60);
+    const hari = Math.floor(jam / 24);
+    const teks = hari > 0 ? `${hari}h ${jam % 24}j ${menit % 60}m` : jam > 0 ? `${jam}j ${menit % 60}m` : `${menit}m`;
+
+    return (
+        <span className="text-xs text-slate-500">
+            Durasi di divisi ini: <span className="font-mono font-semibold text-slate-700">{teks}</span>
+        </span>
     );
 }
 
@@ -276,9 +377,14 @@ function FormAdminJo({ row, segarkan }) {
         if (hasil?.berhasil) segarkan();
         return hasil;
     };
+    const [batalBuka, setBatalBuka] = useState(false);
+    const formBatalRef = useRef(null);
     const bungkusBatal = async (prev, formData) => {
         const hasil = await batalkanJo(prev, formData);
-        if (hasil?.berhasil) segarkan();
+        if (hasil?.berhasil) {
+            setBatalBuka(false);
+            segarkan();
+        }
         return hasil;
     };
     const [statePindah, actionPindah, pendingPindah] = useActionState(bungkusPindah, undefined);
@@ -304,31 +410,50 @@ function FormAdminJo({ row, segarkan }) {
                 {statePindah?.errors?.divisi && <PesanGagal pesan={statePindah.errors.divisi} />}
                 {statePindah?.pesan && <span className="text-sm text-emerald-700">{statePindah.pesan}</span>}
             </form>
-            <form
-                action={actionBatal}
-                onSubmit={(e) => {
-                    if (!confirm(`Batalkan job order ${row.nomor}?`)) e.preventDefault();
-                }}
-            >
+            <form ref={formBatalRef} action={actionBatal}>
                 <input type="hidden" name="nomor" value={row.nomor} />
-                <button type="submit" disabled={pendingBatal} className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}>
-                    {pendingBatal ? "..." : "Batalkan JO"}
+                <button
+                    type="button"
+                    onClick={() => setBatalBuka(true)}
+                    className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
+                >
+                    Batalkan JO
                 </button>
                 {stateBatal?.errors?.umum && <PesanGagal pesan={stateBatal.errors.umum} />}
             </form>
+            {batalBuka && (
+                <KonfirmasiHapus
+                    judul="Batalkan Job Order"
+                    pesan={`Batalkan job order ${row.nomor}? Status berubah menjadi dibatalkan, job tidak dapat diaktifkan kembali.`}
+                    labelAksi="Ya, Batalkan"
+                    onBatal={() => setBatalBuka(false)}
+                    onHapus={() => formBatalRef.current?.requestSubmit()}
+                    pending={pendingBatal}
+                    error={stateBatal?.errors?.umum}
+                />
+            )}
         </div>
     );
 }
 
 function ItemProduk({ produk, bolehKelola, segarkan }) {
     const [edit, setEdit] = useState(false);
+    const [hapusBuka, setHapusBuka] = useState(false);
+    const [hapusPending, setHapusPending] = useState(false);
+    const [hapusError, setHapusError] = useState(null);
 
     const hapus = async () => {
+        setHapusPending(true);
+        setHapusError(null);
         const fd = new FormData();
         fd.set("id_produk", produk.id);
         const hasil = await hapusProduk(fd);
-        if (hasil?.errors) alert(hasil.errors[0]);
-        else segarkan();
+        setHapusPending(false);
+        if (hasil?.errors) setHapusError(hasil.errors[0]);
+        else {
+            setHapusBuka(false);
+            segarkan();
+        }
     };
 
     if (edit) {
@@ -358,13 +483,24 @@ function ItemProduk({ produk, bolehKelola, segarkan }) {
                     <button
                         type="button"
                         onClick={() => {
-                            if (confirm(`Hapus produk "${produk.nama}"?`)) hapus();
+                            setHapusError(null);
+                            setHapusBuka(true);
                         }}
                         className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
                     >
                         Hapus
                     </button>
                 </div>
+            )}
+            {hapusBuka && (
+                <KonfirmasiHapus
+                    judul="Hapus Produk"
+                    pesan={`Hapus produk "${produk.nama}" dari job order ini? Data tidak dapat dikembalikan.`}
+                    onBatal={() => setHapusBuka(false)}
+                    onHapus={hapus}
+                    pending={hapusPending}
+                    error={hapusError}
+                />
             )}
         </li>
     );

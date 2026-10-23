@@ -15,10 +15,12 @@ const tabProfil = { id: "profil", label: "Profil", content: <Profil /> };
 const tabKelolaAkun = { id: "kelola-akun", label: "Kelola Akun", content: <KelolaAkun /> };
 const tabTambahPelanggan = { id: "pelanggan-tambah", label: "Tambah Pelanggan", content: <TambahPelanggan /> };
 
+const KUNCI_TAB = "stu-tab-dashboard";
+
 export default function Dashboard() {
     const user = useUser();
     const [menuBuka, setMenuBuka] = useState(null);
-    const [tabs, setTabs] = useState([beranda]);
+    const [tabTerbuka, setTabTerbuka] = useState([beranda.id]);
     const [tabAktif, setTabAktif] = useState(beranda.id);
     const asideRef = useRef(null);
 
@@ -34,7 +36,7 @@ export default function Dashboard() {
     const bisa = (id) => bolehMenu(user.divisi, id);
 
     const bukaTab = (sub) => {
-        if (!tabs.some((t) => t.id === sub.id)) setTabs([...tabs, sub]);
+        setTabTerbuka((sebelumnya) => (sebelumnya.includes(sub.id) ? sebelumnya : [...sebelumnya, sub.id]));
         setTabAktif(sub.id);
         setMenuBuka(null);
     };
@@ -54,6 +56,40 @@ export default function Dashboard() {
         label: "Kelola Pelanggan",
         content: <KelolaPelanggan onTambah={() => bukaTab(tabTambahPelanggan)} />,
     };
+
+    const tabDariId = {
+        [beranda.id]: beranda,
+        [tabProfil.id]: tabProfil,
+        [tabKelolaAkun.id]: tabKelolaAkun,
+        [tabTambahPelanggan.id]: tabTambahPelanggan,
+        [tabTambahJo.id]: tabTambahJo,
+        [tabKelolaJo.id]: tabKelolaJo,
+        [tabKelolaPelanggan.id]: tabKelolaPelanggan,
+    };
+
+    useEffect(() => {
+        let data;
+        try {
+            data = JSON.parse(localStorage.getItem(KUNCI_TAB));
+        } catch {
+            return;
+        }
+        const urut = ["beranda", ...((Array.isArray(data?.terbuka) && data.terbuka) || [])]
+            .filter((id, i, arr) => arr.indexOf(id) === i)
+            .filter((id) => id === "beranda" || (tabDariId[id] && bisa(id)));
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (urut.length > 1) setTabTerbuka(urut);
+        if (data?.aktif && urut.includes(data.aktif)) setTabAktif(data.aktif);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(KUNCI_TAB, JSON.stringify({ terbuka: tabTerbuka, aktif: tabAktif }));
+        } catch {
+            // localStorage tidak tersedia — abaikan
+        }
+    }, [tabTerbuka, tabAktif]);
 
     const menus = [
         {
@@ -79,13 +115,14 @@ export default function Dashboard() {
     const toggleMenu = (id) => setMenuBuka(menuBuka === id ? null : id);
 
     const tutupTab = (id) => {
-        const idx = tabs.findIndex((t) => t.id === id);
-        const baru = tabs.filter((t) => t.id !== id);
-        if (tabAktif === id) setTabAktif(baru[Math.max(0, idx - 1)].id);
-        setTabs(baru);
+        const idx = tabTerbuka.indexOf(id);
+        const baru = tabTerbuka.filter((t) => t !== id);
+        if (tabAktif === id) setTabAktif(baru[Math.max(0, idx - 1)]);
+        setTabTerbuka(baru);
     };
 
-    const tabSekarang = tabs.find((t) => t.id === tabAktif);
+    const tabs = tabTerbuka.map((id) => tabDariId[id]).filter(Boolean);
+    const tabSekarang = tabDariId[tabAktif] ?? beranda;
 
     return (
         <>

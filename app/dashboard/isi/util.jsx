@@ -82,3 +82,27 @@ export function Overlay({ judul, onTutup, children }) {
         </div>
     );
 }
+
+export function KonfirmasiHapus({ judul, pesan, onBatal, onHapus, pending, error, labelAksi = "Ya, Hapus" }) {
+    return (
+        <Overlay judul={judul} onTutup={pending ? () => {} : onBatal}>
+            <div className="flex flex-col gap-4 max-w-md">
+                <p className="text-sm text-slate-600">{pesan}</p>
+                <PesanGagal pesan={error} />
+                <div className="flex justify-end gap-2">
+                    <button type="button" onClick={onBatal} disabled={pending} className={KELAS_TOMBOL_KECIL}>
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onHapus}
+                        disabled={pending}
+                        className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white hover:cursor-pointer disabled:opacity-60 transition-colors duration-300"
+                    >
+                        {pending ? "Memproses..." : labelAksi}
+                    </button>
+                </div>
+            </div>
+        </Overlay>
+    );
+}

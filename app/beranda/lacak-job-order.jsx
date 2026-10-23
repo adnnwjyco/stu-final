@@ -7,6 +7,7 @@ import { BadgeStatus, ProgressBar, formatTanggal } from "../dashboard/isi/util";
 const KELAS_LINGKARAN = {
     selesai: "bg-emerald-500 border-emerald-500 text-white",
     aktif: "bg-slate-700 border-slate-700 text-white",
+    konfirmasi: "bg-amber-100 border-amber-400 text-amber-700",
     menunggu: "bg-white border-slate-300 text-slate-400",
     batal: "bg-rose-100 border-rose-300 text-rose-500",
 };
@@ -14,6 +15,7 @@ const KELAS_LINGKARAN = {
 const KELAS_Teks = {
     selesai: "text-slate-700",
     aktif: "font-semibold text-slate-900",
+    konfirmasi: "font-semibold text-amber-700",
     menunggu: "text-slate-400",
     batal: "text-rose-500",
 };
@@ -22,6 +24,7 @@ function labelStatusLangkah(status, statusJo) {
     if (status === "selesai") return "Selesai";
     if (status === "batal") return "Dibatalkan";
     if (status === "menunggu") return "Menunggu";
+    if (status === "konfirmasi") return "Menunggu konfirmasi terima";
     return statusJo === "pending" ? "Menunggu dimulai" : "Sedang dikerjakan";
 }
 
@@ -53,9 +56,11 @@ function DaftarLangkah({ langkah, statusJo }) {
                                           ? statusJo === "pending"
                                               ? "text-amber-600"
                                               : "text-slate-700"
-                                          : l.status === "batal"
-                                            ? "text-rose-500"
-                                            : "text-slate-400"
+                                          : l.status === "konfirmasi"
+                                            ? "text-amber-600"
+                                            : l.status === "batal"
+                                              ? "text-rose-500"
+                                              : "text-slate-400"
                                 }`}
                             >
                                 {labelStatusLangkah(l.status, statusJo)}
