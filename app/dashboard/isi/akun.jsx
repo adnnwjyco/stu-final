@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { tambahAkun, ubahDivisiAkun, resetPasswordAkun, hapusAkun } from "@/app/actions/akun";
 import { DAFTAR_DIVISI, LABEL_DIVISI } from "@/lib/akses";
 import { useUser } from "../user-provider";
-import { Kosong, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, PesanGagal, PesanBerhasil } from "./util";
+import { Kosong, Memuat, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, KELAS_TOMBOL_DANGER, KELAS_KARTU, PesanGagal, PesanBerhasil } from "./util";
 
 export default function KelolaAkun() {
     const user = useUser();
@@ -32,26 +32,26 @@ export default function KelolaAkun() {
         };
     }, [muat]);
 
-    if (gagal) return <p className="text-sm text-red-600">Gagal memuat daftar akun.</p>;
+    if (gagal) return <p className="text-[14px] text-ruby">Gagal memuat daftar akun.</p>;
 
     return (
         <div className="flex flex-col gap-6">
             <FormTambahAkun segarkan={segarkan} />
 
             <div className="flex flex-col gap-2">
-                <h2 className="text-sm font-semibold text-slate-600">Daftar Akun</h2>
+                <h2 className="text-[13px] font-normal uppercase tracking-[0.1px] text-ink-mute">Daftar Akun</h2>
                 {!daftar ? (
-                    <p className="text-sm text-slate-400">Memuat akun...</p>
+                    <Memuat area />
                 ) : daftar.length === 0 ? (
                     <Kosong pesan="Belum ada akun." />
                 ) : (
-                    <div className="overflow-x-auto bg-white border border-slate-200">
-                        <table className="w-full text-sm">
+                    <div className="overflow-x-auto bg-canvas border border-hairline rounded-xl shadow-lift-1">
+                        <table className="w-full text-[14px]">
                             <thead>
-                                <tr className="text-left text-slate-500 bg-slate-100 border-b border-slate-200">
-                                    <th className="p-2 font-medium">Username</th>
-                                    <th className="p-2 font-medium">Divisi</th>
-                                    <th className="p-2 font-medium">Aksi</th>
+                                <tr className="text-left text-ink-mute bg-canvas-soft border-b border-hairline">
+                                    <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Username</th>
+                                    <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Divisi</th>
+                                    <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -95,15 +95,15 @@ function AkunBaris({ akun, sendiri, segarkan }) {
     };
 
     return (
-        <tr className="border-b border-slate-100 align-top">
-            <td className="p-2">
+        <tr className="border-b border-hairline last:border-0 align-top hover:bg-canvas-soft transition-colors duration-200">
+            <td className="p-3">
                 {akun.username}
-                {sendiri && <span className="ml-2 text-xs text-slate-400">(Anda)</span>}
+                {sendiri && <span className="ml-2 text-[11px] text-ink-mute">(Anda)</span>}
             </td>
-            <td className="p-2">
+            <td className="p-3">
                 <form action={actionDivisi} className="flex flex-wrap items-center gap-2">
                     <input type="hidden" name="id" value={akun.id} />
-                    <select name="divisi" defaultValue={akun.divisi} disabled={sendiri} className={`${KELAS_INPUT} py-1`}>
+                    <select name="divisi" defaultValue={akun.divisi} disabled={sendiri} className={`${KELAS_INPUT} py-1.5`}>
                         {DAFTAR_DIVISI.map((d) => (
                             <option key={d} value={d}>
                                 {LABEL_DIVISI[d]}
@@ -116,9 +116,9 @@ function AkunBaris({ akun, sendiri, segarkan }) {
                         </button>
                     )}
                 </form>
-                {stateDivisi?.errors && <p className="text-xs text-red-600 mt-1">{stateDivisi.errors[0]}</p>}
+                {stateDivisi?.errors && <p className="text-[11px] text-ruby mt-1">{stateDivisi.errors[0]}</p>}
             </td>
-            <td className="p-2">
+            <td className="p-3">
                 <div className="flex flex-wrap gap-2">
                     {!sendiri && (
                         <>
@@ -130,7 +130,7 @@ function AkunBaris({ akun, sendiri, segarkan }) {
                                 onClick={() => {
                                     if (confirm(`Hapus akun "${akun.username}"?`)) hapus();
                                 }}
-                                className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
+                                className={KELAS_TOMBOL_DANGER}
                             >
                                 Hapus
                             </button>
@@ -140,11 +140,11 @@ function AkunBaris({ akun, sendiri, segarkan }) {
                 {resetTerbuka && (
                     <form action={actionReset} className="mt-2 flex flex-wrap items-center gap-2">
                         <input type="hidden" name="id" value={akun.id} />
-                        <input name="password" type="text" placeholder="Password baru" className={`${KELAS_INPUT} py-1 w-40`} />
+                        <input name="password" type="text" placeholder="Password baru" className={`${KELAS_INPUT} py-1.5 w-40`} />
                         <button type="submit" disabled={pendingReset} className={KELAS_TOMBOL_KECIL}>
                             {pendingReset ? "..." : "Ubah"}
                         </button>
-                        {stateReset?.errors && <p className="text-xs text-red-600">{stateReset.errors[0]}</p>}
+                        {stateReset?.errors && <p className="text-[11px] text-ruby">{stateReset.errors[0]}</p>}
                     </form>
                 )}
             </td>
@@ -164,20 +164,20 @@ function FormTambahAkun({ segarkan }) {
     const [state, action, pending] = useActionState(bungkus, undefined);
 
     return (
-        <form id="form-tambah-akun" action={action} className="bg-white border border-slate-200 p-4 flex flex-col gap-3 max-w-xl">
-            <h2 className="text-sm font-semibold text-slate-600">Tambah Akun</h2>
+        <form id="form-tambah-akun" action={action} className={`${KELAS_KARTU} flex flex-col gap-3 max-w-xl`}>
+            <h2 className="text-[18px] font-normal tracking-[-0.2px] text-ink">Tambah Akun</h2>
             <PesanGagal pesan={state?.errors?.umum} />
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
                 <label className={KELAS_LABEL}>Username</label>
                 <input name="username" type="text" className={KELAS_INPUT} />
                 <PesanGagal pesan={state?.errors?.username} />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
                 <label className={KELAS_LABEL}>Password</label>
                 <input name="password" type="text" className={KELAS_INPUT} />
                 <PesanGagal pesan={state?.errors?.password} />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
                 <label className={KELAS_LABEL}>Divisi</label>
                 <select name="divisi" defaultValue="operasional" className={KELAS_INPUT}>
                     {DAFTAR_DIVISI.map((d) => (

@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { tambahPelanggan, ubahPelanggan, hapusPelanggan } from "@/app/actions/pelanggan";
 import { bolehAksi, LABEL_DIVISI } from "@/lib/akses";
 import { useUser } from "../user-provider";
-import { Kosong, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, PesanGagal, PesanBerhasil, Overlay, KonfirmasiHapus, BadgeStatus, ProgressBar, formatTanggal } from "./util";
+import { Kosong, Memuat, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, KELAS_TOMBOL_DANGER, KELAS_KARTU, PesanGagal, PesanBerhasil, Overlay, KonfirmasiHapus, BadgeStatus, ProgressBar, formatTanggal } from "./util";
 
 export function KelolaPelanggan({ onTambah }) {
     const user = useUser();
@@ -56,8 +56,8 @@ export function KelolaPelanggan({ onTambah }) {
         };
     }, [muat]);
 
-    if (gagal) return <p className="text-sm text-red-600">Gagal memuat pelanggan.</p>;
-    if (!daftar) return <p className="text-sm text-slate-400">Memuat pelanggan...</p>;
+    if (gagal) return <p className="text-[14px] text-ruby">Gagal memuat pelanggan.</p>;
+    if (!daftar) return <Memuat />;
 
     const terfilter = daftar.filter(
         (p) =>
@@ -77,7 +77,7 @@ export function KelolaPelanggan({ onTambah }) {
                     onChange={(e) => setCari(e.target.value)}
                     className={`${KELAS_INPUT} w-64`}
                 />
-                <span className="text-sm text-slate-400 ml-auto">{terfilter.length} pelanggan</span>
+                <span className="tnum text-[13px] text-ink-mute ml-auto">{terfilter.length} pelanggan</span>
                 {bolehKelola && (
                     <button type="button" onClick={onTambah} className={KELAS_TOMBOL}>
                         + Tambah Pelanggan
@@ -88,14 +88,14 @@ export function KelolaPelanggan({ onTambah }) {
             {terfilter.length === 0 ? (
                 <Kosong pesan="Tidak ada pelanggan yang cocok." />
             ) : (
-                <div className="overflow-x-auto bg-white border border-slate-200">
-                    <table className="w-full text-sm">
+                <div className="overflow-x-auto bg-canvas border border-hairline rounded-xl shadow-lift-1">
+                    <table className="w-full text-[14px]">
                         <thead>
-                            <tr className="text-left text-slate-500 bg-slate-100 border-b border-slate-200">
-                                <th className="p-2 font-medium">Nama</th>
-                                <th className="p-2 font-medium">Telepon</th>
-                                <th className="p-2 font-medium">Email</th>
-                                {bolehKelola && <th className="p-2 font-medium">Aksi</th>}
+                            <tr className="text-left text-ink-mute bg-canvas-soft border-b border-hairline">
+                                <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Nama</th>
+                                <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Telepon</th>
+                                <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Email</th>
+                                {bolehKelola && <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Aksi</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -140,25 +140,23 @@ function PelangganBaris({ row, bolehKelola, idEdit, setIdEdit, setIdDetail, sega
 
     return (
         <>
-            <tr className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="p-2">{row.nama}</td>
-                <td className="p-2 whitespace-nowrap">{row.nomor_telepon || "-"}</td>
-                <td className="p-2">{row.email || "-"}</td>
+            <tr className="border-b border-hairline last:border-0 hover:bg-canvas-soft transition-colors duration-200">
+                <td className="p-3">{row.nama}</td>
+                <td className="p-3 tnum whitespace-nowrap">{row.nomor_telepon || "-"}</td>
+                <td className="p-3">{row.email || "-"}</td>
                 {bolehKelola && (
-                    <td className="p-2 flex gap-2">
-                        <button type="button" onClick={() => setIdDetail(row.id)} className={KELAS_TOMBOL_KECIL}>
-                            Detail
-                        </button>
-                        <button type="button" onClick={() => setIdEdit(terbuka ? null : row.id)} className={KELAS_TOMBOL_KECIL}>
-                            {terbuka ? "Tutup" : "Ubah"}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={onMintaHapus}
-                            className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
-                        >
-                            Hapus
-                        </button>
+                    <td className="p-3">
+                        <div className="flex gap-2">
+                            <button type="button" onClick={() => setIdDetail(row.id)} className={KELAS_TOMBOL_KECIL}>
+                                Detail
+                            </button>
+                            <button type="button" onClick={() => setIdEdit(terbuka ? null : row.id)} className={KELAS_TOMBOL_KECIL}>
+                                {terbuka ? "Tutup" : "Ubah"}
+                            </button>
+                            <button type="button" onClick={onMintaHapus} className={KELAS_TOMBOL_DANGER}>
+                                Hapus
+                            </button>
+                        </div>
                     </td>
                 )}
             </tr>
@@ -204,50 +202,48 @@ function DetailPelanggan({ id, onTutup }) {
     return (
         <Overlay judul="Detail Pelanggan" onTutup={onTutup}>
             {gagal ? (
-                <p className="text-sm text-red-600">Gagal memuat detail pelanggan.</p>
+                <p className="text-[14px] text-ruby">Gagal memuat detail pelanggan.</p>
             ) : !data ? (
-                <p className="text-sm text-slate-400">Memuat detail pelanggan...</p>
+                <Memuat area />
             ) : (
                 <>
                     <div className="flex flex-col gap-1">
-                        <p className="text-base font-semibold text-slate-700">{data.nama}</p>
-                        <p className="text-sm text-slate-500">Telepon: {data.nomor_telepon || "-"}</p>
-                        <p className="text-sm text-slate-500">Email: {data.email || "-"}</p>
+                        <p className="text-[18px] font-normal tracking-[-0.2px] text-ink">{data.nama}</p>
+                        <p className="tnum text-[14px] text-ink-mute">Telepon: {data.nomor_telepon || "-"}</p>
+                        <p className="text-[14px] text-ink-mute">Email: {data.email || "-"}</p>
                     </div>
                     <div className="flex flex-col gap-2">
-                        <h3 className="text-sm font-semibold text-slate-600">Histori Job Order ({data.riwayat.length})</h3>
+                        <h3 className="text-[13px] font-normal uppercase tracking-[0.1px] text-ink-mute">
+                            Histori Job Order ({data.riwayat.length})
+                        </h3>
                         {data.riwayat.length === 0 ? (
                             <Kosong pesan="Belum ada job order untuk pelanggan ini." />
                         ) : (
-                            <div className="overflow-x-auto border border-slate-200">
-                                <table className="w-full text-sm">
+                            <div className="overflow-x-auto border border-hairline rounded-lg">
+                                <table className="w-full text-[14px] tnum">
                                     <thead>
-                                        <tr className="text-left text-slate-500 bg-slate-100 border-b border-slate-200">
-                                            <th className="p-2 font-medium">Nomor</th>
-                                            <th className="p-2 font-medium">Terima</th>
-                                            <th className="p-2 font-medium">Selesai</th>
-                                            <th className="p-2 font-medium">Divisi</th>
-                                            <th className="p-2 font-medium">Persentase</th>
-                                            <th className="p-2 font-medium">Status</th>
+                                        <tr className="text-left text-ink-mute bg-canvas-soft border-b border-hairline">
+                                            <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Nomor</th>
+                                            <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Terima</th>
+                                            <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Selesai</th>
+                                            <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Divisi</th>
+                                            <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Persentase</th>
+                                            <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {data.riwayat.map((jo) => (
-                                            <tr key={jo.nomor} className="border-b border-slate-100">
-                                                <td className="p-2 font-mono text-xs whitespace-nowrap">{jo.nomor}</td>
-                                                <td className="p-2 whitespace-nowrap">{formatTanggal(jo.tanggal_terima)}</td>
-                                                <td className="p-2 whitespace-nowrap">{formatTanggal(jo.tanggal_selesai)}</td>
-                                                <td className="p-2 whitespace-nowrap text-xs">
-                                                    {jo.divisi_pengerjaan ? (
-                                                        LABEL_DIVISI[jo.divisi_pengerjaan]
-                                                    ) : (
-                                                        <span className="text-slate-400">—</span>
-                                                    )}
+                                            <tr key={jo.nomor} className="border-b border-hairline last:border-0">
+                                                <td className="p-3 tnum text-[13px] text-ink-secondary whitespace-nowrap">{jo.nomor}</td>
+                                                <td className="p-3 tnum whitespace-nowrap text-ink-mute">{formatTanggal(jo.tanggal_terima)}</td>
+                                                <td className="p-3 tnum whitespace-nowrap text-ink-mute">{formatTanggal(jo.tanggal_selesai)}</td>
+                                                <td className="p-3 whitespace-nowrap text-[13px]">
+                                                    {jo.divisi_pengerjaan ? LABEL_DIVISI[jo.divisi_pengerjaan] : <span className="text-ink-mute">-</span>}
                                                 </td>
-                                                <td className="p-2">
+                                                <td className="p-3">
                                                     <ProgressBar persentase={jo.persentase} />
                                                 </td>
-                                                <td className="p-2">
+                                                <td className="p-3">
                                                     <BadgeStatus status={jo.status} />
                                                 </td>
                                             </tr>
@@ -272,18 +268,18 @@ function FormUbahPelanggan({ row, onSelesai }) {
     const [state, action, pending] = useActionState(bungkus, undefined);
 
     return (
-        <form action={action} className="flex flex-col gap-2 p-2 bg-slate-50 border-t border-slate-200">
+        <form action={action} className="flex flex-col gap-3 p-4 bg-canvas-soft border-t border-hairline rounded-b-xl">
             <input type="hidden" name="id" value={row.id} />
             <div className="flex flex-wrap gap-3 items-end">
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-2">
                     <label className={KELAS_LABEL}>Nama</label>
                     <input name="nama" type="text" defaultValue={row.nama} className={KELAS_INPUT} />
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-2">
                     <label className={KELAS_LABEL}>Telepon</label>
                     <input name="nomor_telepon" type="text" defaultValue={row.nomor_telepon ?? ""} className={KELAS_INPUT} />
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-2">
                     <label className={KELAS_LABEL}>Email</label>
                     <input name="email" type="text" defaultValue={row.email ?? ""} className={KELAS_INPUT} />
                 </div>
@@ -304,19 +300,19 @@ export function TambahPelanggan() {
     }, [state]);
 
     return (
-        <form id="form-tambah-pelanggan" action={action} className="bg-white border border-slate-200 p-4 flex flex-col gap-3 max-w-xl">
+        <form id="form-tambah-pelanggan" action={action} className={`${KELAS_KARTU} flex flex-col gap-3 max-w-xl`}>
             <PesanGagal pesan={state?.errors?.umum} />
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
                 <label className={KELAS_LABEL}>Nama</label>
                 <input name="nama" type="text" className={KELAS_INPUT} />
                 <PesanGagal pesan={state?.errors?.nama} />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
                 <label className={KELAS_LABEL}>Nomor Telepon</label>
                 <input name="nomor_telepon" type="text" className={KELAS_INPUT} />
                 <PesanGagal pesan={state?.errors?.nomor_telepon} />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
                 <label className={KELAS_LABEL}>Email</label>
                 <input name="email" type="email" className={KELAS_INPUT} />
                 <PesanGagal pesan={state?.errors?.email} />

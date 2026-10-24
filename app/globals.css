@@ -1,5 +1,51 @@
 @import "tailwindcss";
 
+@theme {
+    --color-primary: #533afd;
+    --color-primary-deep: #4434d4;
+    --color-primary-press: #2e2b8c;
+    --color-primary-soft: #665efd;
+    --color-primary-subdued: #b9b9f9;
+    --color-brand-dark: #1c1e54;
+    --color-ink: #0d253d;
+    --color-ink-secondary: #273951;
+    --color-ink-mute: #64748d;
+    --color-canvas: #ffffff;
+    --color-canvas-soft: #f6f9fc;
+    --color-canvas-cream: #f5e9d4;
+    --color-hairline: #e3e8ee;
+    --color-hairline-input: #a8c3de;
+    --color-ruby: #ea2261;
+
+    --font-sans: var(--font-inter), "SF Pro Display", system-ui, -apple-system, sans-serif;
+
+    --shadow-lift-1: rgba(0, 55, 112, 0.08) 0 1px 3px;
+    --shadow-lift-2: rgba(0, 55, 112, 0.08) 0 8px 24px, rgba(0, 55, 112, 0.04) 0 2px 6px;
+}
+
 html {
-  background-color: white;
+    background-color: var(--color-canvas);
+}
+
+body {
+    font-family: var(--font-sans);
+    font-weight: 300;
+    font-feature-settings: "ss01";
+    color: var(--color-ink);
+    background-color: var(--color-canvas-soft);
+}
+
+.tnum {
+    font-feature-settings: "tnum";
+}
+
+@utility mesh-hero {
+    background:
+        radial-gradient(ellipse 60% 80% at 8% 18%, rgba(245, 233, 212, 0.95), transparent 60%),
+        radial-gradient(ellipse 50% 70% at 28% 8%, rgba(155, 104, 41, 0.28), transparent 55%),
+        radial-gradient(ellipse 55% 75% at 48% 22%, rgba(185, 185, 249, 0.55), transparent 60%),
+        radial-gradient(ellipse 50% 70% at 68% 6%, rgba(83, 58, 253, 0.32), transparent 55%),
+        radial-gradient(ellipse 55% 75% at 88% 24%, rgba(234, 34, 97, 0.28), transparent 60%),
+        radial-gradient(ellipse 45% 60% at 98% 4%, rgba(249, 107, 238, 0.3), transparent 50%),
+        linear-gradient(180deg, #ffffff 0%, var(--color-canvas-soft) 100%);
 }

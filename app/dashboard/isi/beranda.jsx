@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { LABEL_DIVISI } from "@/lib/akses";
-import { BadgeStatus, ProgressBar, formatTanggal, Kosong } from "./util";
+import { BadgeStatus, ProgressBar, formatTanggal, Kosong, Memuat } from "./util";
 import GrafikBulanan from "./grafik-bulanan";
 
 function Kartu({ label, nilai }) {
     return (
-        <div className="bg-white border border-slate-200 p-4 flex flex-col gap-1">
-            <span className="text-sm text-slate-400">{label}</span>
-            <span className="text-2xl">{nilai}</span>
+        <div className="bg-canvas border border-hairline rounded-xl p-5 flex flex-col gap-1 shadow-lift-1">
+            <span className="text-[13px] font-normal tracking-[-0.39px] text-ink-mute">{label}</span>
+            <span className="tnum text-[26px] font-light leading-[1.12] tracking-[-0.26px] text-ink">{nilai}</span>
         </div>
     );
 }
@@ -44,8 +44,8 @@ export default function Beranda() {
         };
     }, []);
 
-    if (gagal) return <p className="text-sm text-red-600">Gagal memuat data. Muat ulang halaman.</p>;
-    if (!statistik) return <p className="text-sm text-slate-400">Memuat statistik...</p>;
+    if (gagal) return <p className="text-[14px] text-ruby">Gagal memuat data. Muat ulang halaman.</p>;
+    if (!statistik) return <Memuat />;
 
     const lingkupDivisi = statistik.lingkup === "divisi";
 
@@ -70,45 +70,47 @@ export default function Beranda() {
             </div>
 
             <div className="flex flex-col gap-2">
-                <h2 className="text-sm font-semibold text-slate-600">
+                <h2 className="text-[13px] font-normal uppercase tracking-[0.1px] text-ink-mute">
                     Rangkuman Bulanan Job Order{lingkupDivisi ? ` di Divisi ${LABEL_DIVISI[statistik.divisi] ?? ""}` : ""}{" "}
-                    <span className="font-normal text-slate-400">(berdasarkan tanggal terima)</span>
+                    <span className="text-hairline-input">(berdasarkan tanggal terima)</span>
                 </h2>
                 <GrafikBulanan data={statistik.bulanan ?? []} />
             </div>
 
             <div className="flex flex-col gap-2">
-                <h2 className="text-sm font-semibold text-slate-600">{lingkupDivisi ? "Job Order Terakhir di Divisi Saya" : "Job Order Terakhir"}</h2>
+                <h2 className="text-[13px] font-normal uppercase tracking-[0.1px] text-ink-mute">
+                    {lingkupDivisi ? "Job Order Terakhir di Divisi Saya" : "Job Order Terakhir"}
+                </h2>
                 {terakhir.length === 0 ? (
                     <Kosong pesan="Belum ada job order." />
                 ) : (
-                    <div className="overflow-x-auto bg-white border border-slate-200">
-                        <table className="w-full text-sm">
+                    <div className="overflow-x-auto bg-canvas border border-hairline rounded-xl shadow-lift-1">
+                        <table className="w-full text-[14px] tnum">
                             <thead>
-                                <tr className="text-left text-slate-500 bg-slate-100 border-b border-slate-200">
-                                    <th className="p-2 font-medium">Nomor</th>
-                                    <th className="p-2 font-medium">Pelanggan</th>
-                                    <th className="p-2 font-medium">Tenggat</th>
-                                    {!lingkupDivisi && <th className="p-2 font-medium">Divisi</th>}
-                                    <th className="p-2 font-medium">Persentase</th>
-                                    <th className="p-2 font-medium">Status</th>
+                                <tr className="text-left text-ink-mute bg-canvas-soft border-b border-hairline">
+                                    <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Nomor</th>
+                                    <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Pelanggan</th>
+                                    <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Tenggat</th>
+                                    {!lingkupDivisi && <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Divisi</th>}
+                                    <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Persentase</th>
+                                    <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {terakhir.map((jo) => (
-                                    <tr key={jo.nomor} className="border-b border-slate-100 last:border-0">
-                                        <td className="p-2 font-mono text-xs whitespace-nowrap">{jo.nomor}</td>
-                                        <td className="p-2">{jo.nama_pelanggan}</td>
-                                        <td className="p-2 whitespace-nowrap">{formatTanggal(jo.tanggal_selesai)}</td>
+                                    <tr key={jo.nomor} className="border-b border-hairline last:border-0 hover:bg-canvas-soft transition-colors duration-200">
+                                        <td className="p-3 tnum text-[13px] text-ink-secondary whitespace-nowrap">{jo.nomor}</td>
+                                        <td className="p-3">{jo.nama_pelanggan}</td>
+                                        <td className="p-3 tnum whitespace-nowrap text-ink-mute">{formatTanggal(jo.tanggal_selesai)}</td>
                                         {!lingkupDivisi && (
-                                            <td className="p-2 whitespace-nowrap text-xs">
-                                                {jo.divisi_pengerjaan ? LABEL_DIVISI[jo.divisi_pengerjaan] : <span className="text-slate-400">—</span>}
+                                            <td className="p-3 whitespace-nowrap text-[13px]">
+                                                {jo.divisi_pengerjaan ? LABEL_DIVISI[jo.divisi_pengerjaan] : <span className="text-ink-mute">-</span>}
                                             </td>
                                         )}
-                                        <td className="p-2">
+                                        <td className="p-3">
                                             <ProgressBar persentase={jo.persentase} />
                                         </td>
-                                        <td className="p-2">
+                                        <td className="p-3">
                                             <BadgeStatus status={jo.status} />
                                         </td>
                                     </tr>

@@ -56,6 +56,13 @@ export function divisiSetelah(divisi: Divisi | null): Divisi | null {
     return PIPELINE[i + 1];
 }
 
+export function persentaseDivisi(divisi: Divisi | null): number {
+    if (!divisi) return 0;
+    const i = PIPELINE.indexOf(divisi);
+    if (i < 0) return 0;
+    return Math.round(((i + 1) / (PIPELINE.length + 1)) * 100);
+}
+
 export function divisiValid(x: unknown): x is Divisi {
     return typeof x === "string" && (DAFTAR_DIVISI as string[]).includes(x);
 }

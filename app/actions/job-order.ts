@@ -3,7 +3,7 @@
 import { query, jalankanTransaksi } from "@/lib/db";
 import { catatAksi } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/dal";
-import { bolehAksi, divisiSetelah, divisiValid, LABEL_DIVISI, type Divisi, type Pengguna } from "@/lib/akses";
+import { bolehAksi, divisiSetelah, divisiValid, LABEL_DIVISI, persentaseDivisi, type Divisi, type Pengguna } from "@/lib/akses";
 import { susunNomorPrp } from "@/lib/nomor";
 
 type BentukJobOrder = {
@@ -92,9 +92,9 @@ export async function tambahJobOrder(_prev: StateJobOrder, formData: FormData): 
             const ada = await q("SELECT 1 FROM job_orders WHERE nomor = $1", [kode]);
             if (ada.length > 0) return null;
             await q(
-                `INSERT INTO job_orders (nomor, id_pelanggan, tanggal_terima, tanggal_selesai, divisi_pengerjaan, menunggu_terima)
-                 VALUES ($1, $2, $3::date, $4::date, 'desainer', TRUE)`,
-                [kode, idPelanggan, tanggalTerima, tanggalSelesai]
+                `INSERT INTO job_orders (nomor, id_pelanggan, tanggal_terima, tanggal_selesai, divisi_pengerjaan, menunggu_terima, persentase)
+                 VALUES ($1, $2, $3::date, $4::date, 'desainer', TRUE, $5)`,
+                [kode, idPelanggan, tanggalTerima, tanggalSelesai, persentaseDivisi("desainer")]
             );
             for (const p of hasilProduk.data!) {
                 await q(
@@ -123,19 +123,13 @@ export async function tambahJobOrder(_prev: StateJobOrder, formData: FormData): 
     }
 }
 
-export async function ubahProgress(_prev: StateJobOrder, formData: FormData): Promise<StateJobOrder> {
+export async function ubahStatusJo(_prev: StateJobOrder, formData: FormData): Promise<StateJobOrder> {
     const user = await getCurrentUser();
 
     const nomor = String(formData.get("nomor") ?? "");
-    const persentase = Number(formData.get("persentase"));
     const status = String(formData.get("status") ?? "");
 
-    const errors: BentukJobOrder["errors"] = {};
-    if (!Number.isInteger(persentase) || persentase < 0 || persentase > 100) {
-        errors.persentase = ["Persentase harus 0-100"];
-    }
-    if (!["pending", "proses"].includes(status)) errors.status = ["Status hanya boleh pending/proses"];
-    if (errors.persentase || errors.status) return { errors };
+    if (!["pending", "proses"].includes(status)) return { errors: { status: ["Status hanya boleh pending/proses"] } };
 
     const jo = await ambilJo(nomor);
     if (!jo) return { errors: { umum: ["Job order tidak ditemukan"] } };
@@ -146,20 +140,16 @@ export async function ubahProgress(_prev: StateJobOrder, formData: FormData): Pr
     if (jo.menunggu_terima) return { errors: { umum: ["Anda belum mengkonfirmasi penerimaan job order ini"] } };
 
     try {
-        await query("UPDATE job_orders SET persentase = $1, status = $2::status_job_enum WHERE nomor = $3", [
-            persentase,
-            status,
-            nomor,
-        ]);
+        await query("UPDATE job_orders SET status = $1::status_job_enum WHERE nomor = $2", [status, nomor]);
         await catatAksi({
             userId: user.id,
             username: user.username,
-            aksi: "ubah_progress",
-            detail: `${nomor} → ${status} (${persentase}%)`,
+            aksi: "ubah_status",
+            detail: `${nomor} → ${status}`,
         });
-        return { berhasil: true, pesan: "Progress diperbarui." };
+        return { berhasil: true, pesan: status === "pending" ? "Job order dipending." : "Proses dilanjutkan." };
     } catch (err) {
-        console.error("Gagal ubah progress:", err);
+        console.error("Gagal ubah status JO:", err);
         return { errors: { umum: ["Gagal menyimpan, coba lagi"] } };
     }
 }
@@ -179,7 +169,7 @@ export async function terimaJo(_prev: StateJobOrder, formData: FormData): Promis
     if (!jo.menunggu_terima) return { errors: { umum: ["Job order sudah diterima"] } };
 
     try {
-        await query("UPDATE job_orders SET menunggu_terima = FALSE, diterima_pada = now() WHERE nomor = $1", [nomor]);
+        await query("UPDATE job_orders SET menunggu_terima = FALSE, status = 'proses', diterima_pada = now() WHERE nomor = $1", [nomor]);
         await catatAksi({
             userId: user.id,
             username: user.username,
@@ -210,8 +200,8 @@ export async function serahTerima(_prev: StateJobOrder, formData: FormData): Pro
     try {
         if (berikutnya) {
             await query(
-                "UPDATE job_orders SET divisi_pengerjaan = $1::divisi_enum, status = 'proses', menunggu_terima = TRUE, diterima_pada = NULL WHERE nomor = $2",
-                [berikutnya, nomor]
+                "UPDATE job_orders SET divisi_pengerjaan = $1::divisi_enum, status = 'proses', persentase = $3, menunggu_terima = TRUE, diterima_pada = NULL WHERE nomor = $2",
+                [berikutnya, nomor, persentaseDivisi(berikutnya)]
             );
             await catatAksi({
                 userId: user.id,
@@ -255,16 +245,16 @@ export async function pindahDivisi(_prev: StateJobOrder, formData: FormData): Pr
 
     try {
         await query(
-            "UPDATE job_orders SET divisi_pengerjaan = $1::divisi_enum, menunggu_terima = TRUE, diterima_pada = NULL WHERE nomor = $2",
-            [divisiBaru, nomor]
+            "UPDATE job_orders SET divisi_pengerjaan = $1::divisi_enum, status = 'proses', persentase = $3, menunggu_terima = FALSE, diterima_pada = now() WHERE nomor = $2",
+            [divisiBaru, nomor, persentaseDivisi(divisiBaru)]
         );
         await catatAksi({
             userId: user.id,
             username: user.username,
             aksi: "pindah_divisi",
-            detail: `${nomor} dipindah ke ${LABEL_DIVISI[divisiBaru]}, menunggu konfirmasi penerimaan`,
+            detail: `${nomor} dipindah ke ${LABEL_DIVISI[divisiBaru]} oleh admin (langsung aktif, tanpa konfirmasi)`,
         });
-        return { berhasil: true, pesan: `Dipindah ke ${LABEL_DIVISI[divisiBaru]}, menunggu konfirmasi terima.` };
+        return { berhasil: true, pesan: `Dipindah ke ${LABEL_DIVISI[divisiBaru]}. Job order langsung aktif tanpa konfirmasi.` };
     } catch (err) {
         console.error("Gagal pindah divisi:", err);
         return { errors: { umum: ["Gagal menyimpan, coba lagi"] } };

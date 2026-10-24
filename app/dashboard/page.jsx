@@ -126,34 +126,84 @@ export default function Dashboard() {
 
     return (
         <>
-            <aside ref={asideRef} className="group flex md:flex-col w-full md:w-16 md:hover:w-56 shrink-0 md:overflow-hidden bg-slate-600 text-white transition-[width] duration-300 ease-in-out">
+            <aside
+                ref={asideRef}
+                className="group flex md:flex-col w-full md:w-16 md:hover:w-56 shrink-0 md:overflow-hidden bg-brand-dark text-white transition-[width] duration-300 ease-in-out"
+            >
                 {menus.map((m) => (
                     <div key={m.id} className="relative flex-1 md:flex-none">
-                        <ul onClick={() => toggleMenu(m.id)} className={`p-4 flex justify-center md:justify-start gap-4 hover:bg-slate-500 hover:cursor-pointer transition-colors duration-300 ${menuBuka === m.id ? "bg-slate-500" : ""}`}>
+                        <ul
+                            onClick={() => toggleMenu(m.id)}
+                            className={`p-4 flex justify-center md:justify-start gap-4 hover:bg-white/8 hover:cursor-pointer transition-colors duration-200 ${
+                                menuBuka === m.id ? "bg-white/12" : ""
+                            }`}
+                        >
                             <m.icon className="stroke-[1.5] shrink-0" />
-                            <li className="max-w-0 opacity-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out md:group-hover:max-w-40 md:group-hover:opacity-100">{m.label}</li>
-                            <ChevronDown className={`hidden md:block ml-auto shrink-0 stroke-[1.5] md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 ${menuBuka === m.id ? "rotate-180" : ""}`} />
+                            <li className="max-w-0 opacity-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out md:group-hover:max-w-40 md:group-hover:opacity-100 text-[14px]">
+                                {m.label}
+                            </li>
+                            <ChevronDown
+                                className={`hidden md:block ml-auto shrink-0 stroke-[1.5] md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 ${
+                                    menuBuka === m.id ? "rotate-180" : ""
+                                }`}
+                            />
                         </ul>
-                        <div className={`grid absolute bottom-full inset-x-0 md:static bg-slate-700 transition-[grid-template-rows] duration-300 ease-in-out ${menuBuka === m.id ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                        <div
+                            className={`grid absolute top-full inset-x-0 md:static bg-brand-dark border-b border-white/10 md:border-t md:border-b-0 md:border-white/10 transition-[grid-template-rows] duration-300 ease-in-out ${
+                                menuBuka === m.id ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                            }`}
+                        >
                             <ul className="min-h-0 overflow-hidden md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
-                                {m.subs.map((s) => <li key={s.id} onClick={() => bukaTab(s)} className={`py-3 pl-4 pr-4 md:pl-14 whitespace-nowrap text-sm hover:bg-slate-500 hover:cursor-pointer transition-colors duration-300 ${tabAktif === s.id ? "bg-slate-500" : ""}`}>{s.label}</li>)}
+                                {m.subs.map((s) => (
+                                    <li
+                                        key={s.id}
+                                        onClick={() => bukaTab(s)}
+                                        className={`py-3 pl-4 pr-4 md:pl-14 whitespace-nowrap text-[14px] hover:bg-white/8 hover:cursor-pointer transition-colors duration-200 ${
+                                            tabAktif === s.id ? "bg-primary text-white" : "text-white/70"
+                                        }`}
+                                    >
+                                        {s.label}
+                                    </li>
+                                ))}
                             </ul>
                         </div>
                     </div>
                 ))}
             </aside>
-            <main className="flex-1 min-w-0 flex flex-col bg-slate-50">
-                <div className="flex overflow-x-auto bg-slate-200 border-b border-slate-300">
+            <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-canvas-soft">
+                <div className="sticky top-0 z-10 flex overflow-x-auto bg-canvas border-b border-hairline">
                     {tabs.map((t) => (
-                        <div key={t.id} onClick={() => setTabAktif(t.id)} className={`px-4 py-2 flex items-center gap-2 shrink-0 whitespace-nowrap border-b-2 hover:cursor-pointer transition-colors duration-300 ${tabAktif === t.id ? "bg-slate-50 border-slate-800 text-slate-800" : "border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800"}`}>
+                        <div
+                            key={t.id}
+                            onClick={() => setTabAktif(t.id)}
+                            className={`px-4 py-2.5 flex items-center gap-2 shrink-0 whitespace-nowrap border-b-2 hover:cursor-pointer transition-colors duration-200 text-[14px] ${
+                                tabAktif === t.id
+                                    ? "bg-canvas border-primary text-ink"
+                                    : "border-transparent text-ink-mute hover:text-ink"
+                            }`}
+                        >
                             <span>{t.label}</span>
-                            {t.id !== beranda.id && <button onClick={(e) => { e.stopPropagation(); tutupTab(t.id); }} className="p-0.5 rounded hover:bg-slate-300 hover:cursor-pointer transition-colors duration-300"><X size={14} /></button>}
+                            {t.id !== beranda.id && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        tutupTab(t.id);
+                                    }}
+                                    aria-label={`Tutup ${t.label}`}
+                                    className="p-0.5 rounded-full text-ink-mute hover:bg-hairline hover:text-ink hover:cursor-pointer transition-colors duration-200"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
                         </div>
                     ))}
                 </div>
-                <section className="p-4 flex-1 overflow-y-auto">
-                    <h1 className="text-lg font-semibold mb-4">{tabSekarang?.label}</h1>
+                <section className="p-4 md:p-6 flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                    <h1 className="text-[22px] font-normal leading-[1.1] tracking-[-0.22px] text-ink mb-5">{tabSekarang?.label}</h1>
                     {tabSekarang?.content}
+                    <footer className="mt-10 pt-4 border-t border-hairline text-[13px] tracking-[-0.39px] text-ink-mute">
+                        Dibuat oleh <span className="text-ink-secondary">PT Stakoo Teknologi Indonesia</span>
+                    </footer>
                 </section>
             </main>
         </>

@@ -1,9 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import {
     tambahJobOrder,
-    ubahProgress,
+    ubahStatusJo,
     terimaJo,
     serahTerima,
     pindahDivisi,
@@ -15,7 +16,7 @@ import {
 } from "@/app/actions/job-order";
 import { bolehAksi, bolehKelolaJo, divisiSetelah, LABEL_DIVISI, DAFTAR_DIVISI } from "@/lib/akses";
 import { useUser } from "../user-provider";
-import { BadgeStatus, ProgressBar, Kosong, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, PesanGagal, PesanBerhasil, KonfirmasiHapus, formatTanggal } from "./util";
+import { BadgeStatus, ProgressBar, Kosong, Memuat, KELAS_INPUT, KELAS_LABEL, KELAS_TOMBOL, KELAS_TOMBOL_KECIL, KELAS_TOMBOL_DANGER, KELAS_KARTU, PesanGagal, PesanBerhasil, KonfirmasiHapus, formatTanggal, LABEL_STATUS } from "./util";
 
 const DAFTAR_STATUS = ["pending", "proses", "selesai", "dibatalkan"];
 
@@ -36,6 +37,39 @@ export function KelolaJobOrder({ onTambah }) {
     const [hapusError, setHapusError] = useState(null);
 
     const segarkan = () => setMuat((n) => n + 1);
+
+    const exportXlsx = () => {
+        if (!daftar || daftar.length === 0) return;
+        const baris = daftar.map((jo) => ({
+            Nomor: jo.nomor,
+            Pelanggan: jo.nama_pelanggan,
+            "Tanggal Terima": formatTanggal(jo.tanggal_terima),
+            "Tanggal Selesai": formatTanggal(jo.tanggal_selesai),
+            Divisi: jo.divisi_pengerjaan ? LABEL_DIVISI[jo.divisi_pengerjaan] : "-",
+            Persentase: jo.persentase,
+            Status: LABEL_STATUS[jo.status] ?? jo.status,
+            "Menunggu Terima": jo.menunggu_terima ? "Ya" : "Tidak",
+            "Diterima Pada": jo.diterima_pada ? formatTanggal(jo.diterima_pada) : "-",
+            Produk: jo.produk.map((p) => `${p.nama} x${p.jumlah}`).join("; "),
+        }));
+        const ws = XLSX.utils.json_to_sheet(baris);
+        ws["!cols"] = [
+            { wch: 20 },
+            { wch: 28 },
+            { wch: 14 },
+            { wch: 14 },
+            { wch: 18 },
+            { wch: 10 },
+            { wch: 12 },
+            { wch: 14 },
+            { wch: 14 },
+            { wch: 40 },
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Job Order");
+        const tanggal = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `job-order-${tanggal}.xlsx`);
+    };
 
     const mintaHapus = (row) => {
         setHapusError(null);
@@ -77,8 +111,8 @@ export function KelolaJobOrder({ onTambah }) {
         };
     }, [muat]);
 
-    if (gagal) return <p className="text-sm text-red-600">Gagal memuat job order.</p>;
-    if (!daftar) return <p className="text-sm text-slate-400">Memuat job order...</p>;
+    if (gagal) return <p className="text-[14px] text-ruby">Gagal memuat job order.</p>;
+    if (!daftar) return <Memuat />;
 
     const terfilter = daftar.filter(
         (jo) =>
@@ -106,7 +140,15 @@ export function KelolaJobOrder({ onTambah }) {
                         </option>
                     ))}
                 </select>
-                <span className="text-sm text-slate-400 ml-auto">{terfilter.length} job order</span>
+                <button
+                    type="button"
+                    onClick={exportXlsx}
+                    disabled={!daftar || daftar.length === 0}
+                    className={KELAS_TOMBOL_KECIL}
+                >
+                    Export XLSX
+                </button>
+                <span className="tnum text-[13px] text-ink-mute ml-auto">{terfilter.length} job order</span>
                 {bolehTambah && (
                     <button type="button" onClick={onTambah} className={KELAS_TOMBOL}>
                         + Tambah Job Order
@@ -117,18 +159,18 @@ export function KelolaJobOrder({ onTambah }) {
             {terfilter.length === 0 ? (
                 <Kosong pesan="Tidak ada job order yang cocok." />
             ) : (
-                <div className="overflow-x-auto bg-white border border-slate-200">
-                    <table className="w-full text-sm">
+                <div className="overflow-x-auto bg-canvas border border-hairline rounded-xl shadow-lift-1">
+                    <table className="w-full text-[14px] tnum">
                         <thead>
-                            <tr className="text-left text-slate-500 bg-slate-100 border-b border-slate-200">
-                                <th className="p-2 font-medium">Nomor</th>
-                                <th className="p-2 font-medium">Pelanggan</th>
-                                <th className="p-2 font-medium">Terima</th>
-                                <th className="p-2 font-medium">Selesai</th>
-                                {lihatSemua && <th className="p-2 font-medium">Divisi</th>}
-                                <th className="p-2 font-medium">Persentase</th>
-                                <th className="p-2 font-medium">Status</th>
-                                <th className="p-2 font-medium">Aksi</th>
+                            <tr className="text-left text-ink-mute bg-canvas-soft border-b border-hairline">
+                                <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Nomor</th>
+                                <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Pelanggan</th>
+                                <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Terima</th>
+                                <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Selesai</th>
+                                {lihatSemua && <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Divisi</th>}
+                                <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Persentase</th>
+                                <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Status</th>
+                                <th className="p-3 font-normal text-[11px] uppercase tracking-[0.1px]">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -170,36 +212,38 @@ function JobOrderBaris({ row, kolom, lihatSemua, idBuka, setIdBuka, segarkan, ad
 
     return (
         <>
-            <tr className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="p-2 font-mono text-xs whitespace-nowrap">{row.nomor}</td>
-                <td className="p-2">{row.nama_pelanggan}</td>
-                <td className="p-2 whitespace-nowrap">{formatTanggal(row.tanggal_terima)}</td>
-                <td className="p-2 whitespace-nowrap">{formatTanggal(row.tanggal_selesai)}</td>
+            <tr className="border-b border-hairline last:border-0 hover:bg-canvas-soft transition-colors duration-200">
+                <td className="p-3 tnum text-[13px] text-ink-secondary whitespace-nowrap">{row.nomor}</td>
+                <td className="p-3">{row.nama_pelanggan}</td>
+                <td className="p-3 tnum whitespace-nowrap text-ink-mute">{formatTanggal(row.tanggal_terima)}</td>
+                <td className="p-3 tnum whitespace-nowrap text-ink-mute">{formatTanggal(row.tanggal_selesai)}</td>
                 {lihatSemua && (
-                    <td className="p-2 whitespace-nowrap text-xs">
-                        {row.divisi_pengerjaan ? LABEL_DIVISI[row.divisi_pengerjaan] : <span className="text-slate-400">—</span>}
+                    <td className="p-3 whitespace-nowrap text-[13px]">
+                        {row.divisi_pengerjaan ? LABEL_DIVISI[row.divisi_pengerjaan] : <span className="text-ink-mute">-</span>}
                     </td>
                 )}
-                <td className="p-2">
+                <td className="p-3">
                     <ProgressBar persentase={row.persentase} />
                 </td>
-                <td className="p-2">
+                <td className="p-3">
                     <BadgeStatus status={row.status} />
-                    {menunggu && <span className="block mt-1 px-2 py-0.5 border border-amber-300 bg-amber-100 text-amber-700 text-xs whitespace-nowrap">Menunggu terima</span>}
-                </td>
-                <td className="p-2 flex gap-2">
-                    <button type="button" onClick={() => setIdBuka(terbuka ? null : row.nomor)} className={KELAS_TOMBOL_KECIL}>
-                        {terbuka ? "Tutup" : "Detail"}
-                    </button>
-                    {admin && (
-                        <button
-                            type="button"
-                            onClick={() => onMintaHapus(row)}
-                            className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
-                        >
-                            Hapus
-                        </button>
+                    {menunggu && (
+                        <span className="block mt-1 px-2 py-0.5 border border-amber-300 bg-amber-100 text-amber-700 text-[11px] rounded-full whitespace-nowrap">
+                            Menunggu terima
+                        </span>
                     )}
+                </td>
+                <td className="p-3">
+                    <div className="flex gap-2">
+                        <button type="button" onClick={() => setIdBuka(terbuka ? null : row.nomor)} className={KELAS_TOMBOL_KECIL}>
+                            {terbuka ? "Tutup" : "Detail"}
+                        </button>
+                        {admin && (
+                            <button type="button" onClick={() => onMintaHapus(row)} className={KELAS_TOMBOL_DANGER}>
+                                Hapus
+                            </button>
+                        )}
+                    </div>
                 </td>
             </tr>
             {terbuka && (
@@ -222,15 +266,14 @@ function PanelJo({ row, segarkan }) {
     const penerima = row.divisi_pengerjaan !== null && user.divisi === row.divisi_pengerjaan;
     const perluTerima = aktif && row.menunggu_terima && penerima;
     const menungguInfo = aktif && row.menunggu_terima && !penerima;
-    const sudahDiterima = bolehKelola && aktif && !row.menunggu_terima;
 
     return (
-        <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-col gap-4">
+        <div className="p-4 bg-canvas-soft border-t border-hairline flex flex-col gap-4">
             {perluTerima && (
-                <div className="bg-amber-50 border border-amber-200 p-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-col gap-1">
-                        <p className="text-sm font-semibold text-amber-800">Menunggu penerimaan</p>
-                        <p className="text-xs text-amber-700">
+                        <p className="text-[15px] font-normal text-amber-800">Menunggu penerimaan</p>
+                        <p className="text-[13px] text-amber-700">
                             Job order ini dititipkan ke divisi Anda. Klik &quot;Terima&quot; untuk mulai mengerjakan — durasi
                             dihitung sejak diterima sampai diserahkan ke divisi berikutnya.
                         </p>
@@ -240,15 +283,25 @@ function PanelJo({ row, segarkan }) {
             )}
 
             {menungguInfo && (
-                <div className="bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[13px] text-amber-700">
                     Menunggu konfirmasi penerimaan oleh {LABEL_DIVISI[row.divisi_pengerjaan]}.
                 </div>
             )}
 
-            {sudahDiterima && row.diterima_pada && (
-                <div className="flex flex-wrap items-center gap-3 text-xs bg-white border border-slate-200 px-3 py-2 self-start">
-                    <span className="text-slate-500">Diterima {formatTanggal(row.diterima_pada)}</span>
-                    <DurasiDivisi sejak={row.diterima_pada} />
+            {aktif && row.divisi_pengerjaan && (
+                <div className="flex flex-wrap items-center gap-3 text-[13px] bg-canvas border border-hairline rounded-lg px-4 py-2.5 self-start shadow-lift-1">
+                    <span className="text-ink-mute">
+                        Sedang dikerjakan <span className="text-ink font-normal">{LABEL_DIVISI[row.divisi_pengerjaan]}</span>
+                    </span>
+                    {row.diterima_pada ? (
+                        <>
+                            <span className="text-hairline">|</span>
+                            <span className="tnum text-ink-mute">Masuk divisi {formatTanggal(row.diterima_pada)}</span>
+                            <DurasiDivisi sejak={row.diterima_pada} />
+                        </>
+                    ) : (
+                        <span className="text-amber-600">Belum dikonfirmasi diterima</span>
+                    )}
                 </div>
             )}
 
@@ -259,9 +312,9 @@ function PanelJo({ row, segarkan }) {
             </div>
 
             <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-slate-600">Produk</h3>
+                <h3 className="text-[13px] font-normal uppercase tracking-[0.1px] text-ink-mute">Produk</h3>
                 {row.produk.length === 0 ? (
-                    <p className="text-xs text-slate-400">Belum ada produk.</p>
+                    <p className="text-[13px] text-ink-mute">Belum ada produk.</p>
                 ) : (
                     <ul className="flex flex-col gap-2">
                         {row.produk.map((p) => (
@@ -313,15 +366,18 @@ function DurasiDivisi({ sejak }) {
     const teks = hari > 0 ? `${hari}h ${jam % 24}j ${menit % 60}m` : jam > 0 ? `${jam}j ${menit % 60}m` : `${menit}m`;
 
     return (
-        <span className="text-xs text-slate-500">
-            Durasi di divisi ini: <span className="font-mono font-semibold text-slate-700">{teks}</span>
+        <span className="tnum text-[13px] text-ink-mute">
+            Durasi di divisi ini: <span className="font-normal text-ink">{teks}</span>
         </span>
     );
 }
 
 function FormProgress({ row, segarkan }) {
+    const statusBerikut = row.status === "pending" ? "proses" : "pending";
+    const labelTombol = row.status === "pending" ? "Lanjutkan Proses" : "Pending Order";
+
     const bungkus = async (prev, formData) => {
-        const hasil = await ubahProgress(prev, formData);
+        const hasil = await ubahStatusJo(prev, formData);
         if (hasil?.berhasil) segarkan();
         return hasil;
     };
@@ -330,22 +386,12 @@ function FormProgress({ row, segarkan }) {
     return (
         <form action={action} className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="nomor" value={row.nomor} />
-            <div className="flex flex-col gap-1">
-                <label className={KELAS_LABEL}>Persentase</label>
-                <input type="number" name="persentase" min="0" max="100" required defaultValue={row.persentase} className={`${KELAS_INPUT} w-24`} />
-            </div>
-            <div className="flex flex-col gap-1">
-                <label className={KELAS_LABEL}>Status</label>
-                <select name="status" defaultValue={row.status === "pending" ? "pending" : "proses"} className={KELAS_INPUT}>
-                    <option value="pending">pending</option>
-                    <option value="proses">proses</option>
-                </select>
-            </div>
-            <button type="submit" disabled={pending} className={KELAS_TOMBOL}>
-                {pending ? "Menyimpan..." : "Update Progress"}
+            <input type="hidden" name="status" value={statusBerikut} />
+            <button type="submit" disabled={pending} className={row.status === "pending" ? KELAS_TOMBOL : KELAS_TOMBOL_KECIL}>
+                {pending ? "Memproses..." : labelTombol}
             </button>
-            <PesanGagal pesan={state?.errors?.umum ?? state?.errors?.persentase ?? state?.errors?.status} />
-            {state?.pesan && <span className="text-sm text-emerald-700">{state.pesan}</span>}
+            <PesanGagal pesan={state?.errors?.umum ?? state?.errors?.status} />
+            {state?.pesan && <span className="text-[13px] text-emerald-700">{state.pesan}</span>}
         </form>
     );
 }
@@ -408,14 +454,17 @@ function FormAdminJo({ row, segarkan }) {
                     {pendingPindah ? "..." : "Pindahkan"}
                 </button>
                 {statePindah?.errors?.divisi && <PesanGagal pesan={statePindah.errors.divisi} />}
-                {statePindah?.pesan && <span className="text-sm text-emerald-700">{statePindah.pesan}</span>}
+                {statePindah?.pesan && <span className="text-[13px] text-emerald-700">{statePindah.pesan}</span>}
+                <p className="basis-full text-[11px] text-ink-mute">
+                    Pemindahan oleh admin langsung aktif di divisi tujuan, tanpa perlu konfirmasi terima.
+                </p>
             </form>
             <form ref={formBatalRef} action={actionBatal}>
                 <input type="hidden" name="nomor" value={row.nomor} />
                 <button
                     type="button"
                     onClick={() => setBatalBuka(true)}
-                    className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
+                    className={KELAS_TOMBOL_DANGER}
                 >
                     Batalkan JO
                 </button>
@@ -469,11 +518,11 @@ function ItemProduk({ produk, bolehKelola, segarkan }) {
     }
 
     return (
-        <li className="flex items-start gap-2 p-2 border border-slate-200 bg-white text-sm">
+        <li className="flex items-start gap-2 p-3 border border-hairline bg-canvas rounded-lg text-[14px]">
             <div className="flex-1 min-w-0">
-                <span className="font-medium">{produk.nama}</span>
-                <span className="text-slate-500"> × {produk.jumlah}</span>
-                {produk.keterangan && <p className="text-xs text-slate-400">{produk.keterangan}</p>}
+                <span className="font-normal text-ink">{produk.nama}</span>
+                <span className="tnum text-ink-mute"> × {produk.jumlah}</span>
+                {produk.keterangan && <p className="text-[13px] text-ink-mute">{produk.keterangan}</p>}
             </div>
             {bolehKelola && (
                 <div className="flex gap-2 shrink-0">
@@ -486,7 +535,7 @@ function ItemProduk({ produk, bolehKelola, segarkan }) {
                             setHapusError(null);
                             setHapusBuka(true);
                         }}
-                        className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
+                        className={KELAS_TOMBOL_DANGER}
                     >
                         Hapus
                     </button>
@@ -515,17 +564,20 @@ function FormUbahProduk({ produk, onSelesai }) {
     const [state, action, pending] = useActionState(bungkus, undefined);
 
     return (
-        <form action={action} className="flex flex-wrap items-end gap-2 p-2 border border-slate-300 bg-white text-sm">
+        <form
+            action={action}
+            className="flex flex-wrap items-end gap-2 p-3 border border-hairline-input bg-canvas rounded-lg text-[14px]"
+        >
             <input type="hidden" name="id_produk" value={produk.id} />
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
                 <label className={KELAS_LABEL}>Nama</label>
                 <input name="nama" type="text" defaultValue={produk.nama} required className={KELAS_INPUT} />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
                 <label className={KELAS_LABEL}>Jumlah</label>
                 <input name="jumlah" type="number" min="0" step="any" defaultValue={produk.jumlah} required className={`${KELAS_INPUT} w-24`} />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
                 <label className={KELAS_LABEL}>Keterangan</label>
                 <input name="keterangan" type="text" defaultValue={produk.keterangan ?? ""} className={KELAS_INPUT} />
             </div>
@@ -550,7 +602,11 @@ function FormTambahProduk({ nomor, segarkan }) {
     const [state, action, pending] = useActionState(bungkus, undefined);
 
     return (
-        <form id={`form-produk-${nomor}`} action={action} className="flex flex-wrap items-end gap-2 p-2 border border-dashed border-slate-300 text-sm">
+        <form
+            id={`form-produk-${nomor}`}
+            action={action}
+            className="flex flex-wrap items-end gap-2 p-3 border border-dashed border-hairline-input rounded-lg text-[14px] bg-canvas"
+        >
             <input type="hidden" name="nomor" value={nomor} />
             <div className="flex flex-col gap-1">
                 <label className={KELAS_LABEL}>Produk baru</label>
@@ -634,11 +690,11 @@ export function TambahJobOrder({ onTambahPelanggan }) {
     const hariIni = new Date().toISOString().slice(0, 10);
 
     return (
-        <form id="form-tambah-jo" action={action} className="bg-white border border-slate-200 p-4 flex flex-col gap-4 max-w-2xl">
+        <form id="form-tambah-jo" action={action} className={`${KELAS_KARTU} flex flex-col gap-4 max-w-2xl`}>
             <PesanGagal pesan={state?.errors?.umum} />
             {state?.pesan && <PesanBerhasil tampil />}
 
-            <div className="flex flex-col gap-1 relative" ref={comboRef}>
+            <div className="flex flex-col gap-2 relative" ref={comboRef}>
                 <label className={KELAS_LABEL}>Pelanggan</label>
                 <input
                     type="text"
@@ -655,8 +711,8 @@ export function TambahJobOrder({ onTambahPelanggan }) {
                 />
                 <input type="hidden" name="id_pelanggan" value={pilih?.id ?? ""} />
                 {bukaDropdown && !pilih && (
-                    <ul className="absolute top-full left-0 right-0 z-10 mt-1 bg-white border border-slate-200 max-h-56 overflow-y-auto">
-                        {hasilCari.length === 0 && <li className="p-2 text-sm text-slate-400">Tidak ada pelanggan yang cocok.</li>}
+                    <ul className="absolute top-full left-0 right-0 z-10 mt-1 bg-canvas border border-hairline rounded-lg max-h-56 overflow-y-auto shadow-lift-2">
+                        {hasilCari.length === 0 && <li className="p-3 text-[14px] text-ink-mute">Tidak ada pelanggan yang cocok.</li>}
                         {hasilCari.map((p) => (
                             <li
                                 key={p.id}
@@ -664,22 +720,22 @@ export function TambahJobOrder({ onTambahPelanggan }) {
                                     setPilih(p);
                                     setBukaDropdown(false);
                                 }}
-                                className="p-2 text-sm hover:bg-slate-100 hover:cursor-pointer flex justify-between gap-4"
+                                className="px-3 py-2 text-[14px] hover:bg-canvas-soft hover:cursor-pointer flex justify-between gap-4 border-b border-hairline last:border-0"
                             >
                                 <span>{p.nama}</span>
-                                <span className="text-slate-400">{p.nomor_telepon || p.email || ""}</span>
+                                <span className="tnum text-ink-mute">{p.nomor_telepon || p.email || ""}</span>
                             </li>
                         ))}
                     </ul>
                 )}
                 <PesanGagal pesan={state?.errors?.pelanggan} />
-                <button type="button" onClick={onTambahPelanggan} className="text-xs text-slate-500 hover:text-slate-700 hover:underline hover:cursor-pointer self-start mt-1">
+                <button type="button" onClick={onTambahPelanggan} className="text-[13px] text-primary hover:text-primary-deep hover:underline hover:cursor-pointer self-start mt-1">
                     Pelanggan belum terdaftar? Tambah pelanggan →
                 </button>
             </div>
 
             <div className="flex flex-wrap gap-3">
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-2">
                     <label className={KELAS_LABEL}>Nomor Job Order</label>
                     <input
                         name="nomor"
@@ -690,15 +746,15 @@ export function TambahJobOrder({ onTambahPelanggan }) {
                         required
                         className={`${KELAS_INPUT} w-32`}
                     />
-                    <p className="text-xs text-slate-400">Hanya angka (contoh: 0001). Otomatis menjadi PRP/2026/X/0001 — tahun &amp; bulan romawi dari tanggal terima</p>
+                    <p className="text-[11px] text-ink-mute">Hanya angka (contoh: 0001). Otomatis menjadi PRP/2026/X/0001 — tahun &amp; bulan romawi dari tanggal terima</p>
                     <PesanGagal pesan={state?.errors?.nomor} />
                 </div>
-                <div className="flex flex-col gap-1 flex-1 min-w-40">
+                <div className="flex flex-col gap-2 flex-1 min-w-40">
                     <label className={KELAS_LABEL}>Tanggal Terima</label>
                     <input name="tanggal_terima" type="date" defaultValue={hariIni} required className={KELAS_INPUT} />
                     <PesanGagal pesan={state?.errors?.tanggal_terima} />
                 </div>
-                <div className="flex flex-col gap-1 flex-1 min-w-40">
+                <div className="flex flex-col gap-2 flex-1 min-w-40">
                     <label className={KELAS_LABEL}>Tanggal Selesai</label>
                     <input name="tanggal_selesai" type="date" required className={KELAS_INPUT} />
                     <PesanGagal pesan={state?.errors?.tanggal_selesai} />
@@ -709,8 +765,8 @@ export function TambahJobOrder({ onTambahPelanggan }) {
                 <label className={KELAS_LABEL}>Produk</label>
                 <PesanGagal pesan={state?.errors?.produk} />
                 {baris.map((b, i) => (
-                    <div key={b.uid} className="flex flex-wrap items-end gap-2 p-2 border border-slate-200 bg-slate-50">
-                        <div className="flex flex-col gap-1 flex-1 min-w-40">
+                    <div key={b.uid} className="flex flex-wrap items-end gap-2 p-3 border border-hairline bg-canvas-soft rounded-lg">
+                        <div className="flex flex-col gap-2 flex-1 min-w-40">
                             <label className={KELAS_LABEL}>Nama produk {i + 1}</label>
                             <input
                                 name="produk_nama"
@@ -721,7 +777,7 @@ export function TambahJobOrder({ onTambahPelanggan }) {
                                 className={KELAS_INPUT}
                             />
                         </div>
-                        <div className="flex flex-col gap-1 w-28">
+                        <div className="flex flex-col gap-2 w-28">
                             <label className={KELAS_LABEL}>Jumlah</label>
                             <input
                                 name="produk_jumlah"
@@ -734,7 +790,7 @@ export function TambahJobOrder({ onTambahPelanggan }) {
                                 className={KELAS_INPUT}
                             />
                         </div>
-                        <div className="flex flex-col gap-1 flex-1 min-w-40">
+                        <div className="flex flex-col gap-2 flex-1 min-w-40">
                             <label className={KELAS_LABEL}>Keterangan</label>
                             <input
                                 name="produk_keterangan"
@@ -748,7 +804,7 @@ export function TambahJobOrder({ onTambahPelanggan }) {
                             <button
                                 type="button"
                                 onClick={() => setBaris(baris.filter((x) => x.uid !== b.uid))}
-                                className={`${KELAS_TOMBOL_KECIL} text-red-600 border-red-200 hover:bg-red-50`}
+                                className={KELAS_TOMBOL_DANGER}
                             >
                                 Hapus
                             </button>
